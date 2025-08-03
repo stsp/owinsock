@@ -44,13 +44,13 @@ BOOL	bEstablished = 0;
 
 static	void	FireAsyncRequest(struct tx_queue *ptxq);
 
-void _export
+void __cdecl _export
 RegisterManager(HWND hwnd)
 {
 	hwndManager = hwnd;
 }
 
-void _export
+void __cdecl _export
 SetInitialised(void)
 {
 	bEstablished = TRUE;
@@ -374,7 +374,7 @@ RemoveTask(struct per_task *ppt)
 	}
 };
 
-void far _export
+void far __cdecl _export
 ResponseReceived(struct tx_request *ptxr)
 {
 	int		nLen;
@@ -2044,5 +2044,8 @@ int FAR PASCAL _export _WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
 	return FALSE;
 }
 
-
-
+BOOL FAR PASCAL LibMain( HINSTANCE hInstance, WORD wDataSegment,
+                         WORD wHeapSize, LPSTR lpszCmdLine )
+{
+	return 1;
+}
