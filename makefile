@@ -18,8 +18,7 @@ $(OUTDIR)/$(DLLNAME): $(OUTDIR)/$(NAME).obj a.lnk $(NAME).lbc
 	chmod -x $@
 
 a.lnk:
-	echo debug all >$@
-	echo file $(OUTDIR)/$(NAME).obj >>$@
+	echo file $(OUTDIR)/$(NAME).obj >$@
 	echo option oneautodata >>$@
 	echo option heapsize=32K >>$@
 	echo option stack=8K >>$@
