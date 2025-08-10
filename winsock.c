@@ -85,7 +85,7 @@ CopyDataIn(	void		*pvSource,
 
 	case AT_Int32:
 	case AT_Int32Ptr:
-		*(short *) pvDest = ntohl(*(short *) pvSource);
+		*(long *) pvDest = ntohl(*(long *) pvSource);
 		break;
 
 	case AT_Char:
@@ -115,7 +115,7 @@ CopyDataOut(	void		*pvDest,
 
 	case AT_Int32:
 	case AT_Int32Ptr:
-		*(short *) pvDest = htonl(*(short *) pvSource);
+		*(long *) pvDest = htonl(*(long *) pvSource);
 		break;
 
 	case AT_Char:
