@@ -27,7 +27,7 @@ enum	arg_type
 	AT_Char,
 	AT_String,
 	AT_GenPtr,
-#ifdef __MSDOS__
+#if defined(__MSDOS__) || defined(__WINDOWS__)
 	AT_Int = AT_Int16,
 	AT_IntPtr = AT_Int16
 #else

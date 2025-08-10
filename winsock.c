@@ -26,7 +26,7 @@
 #include "twinsock.h"
 #include "tx.h"
 
-#ifdef __MSDOS__
+#if defined(__MSDOS__) || defined(__WINDOWS__)
 #define	PORTSWAP(x)	ntohs(x)
 #else
 #define	PORTSWAP(x)	ntohl(x)
