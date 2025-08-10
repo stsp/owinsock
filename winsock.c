@@ -53,6 +53,11 @@ static void debug_out(const char *msg)
 }
 
 #define _ENT() debug_out("enter: " __FUNCTION__ "\r\n")
+#define DEBUG_STR(...) { \
+	char _buf[128]; \
+	snprintf(_buf, sizeof(_buf), __VA_ARGS__); \
+	debug_out(_buf); \
+}
 
 void __cdecl
 RegisterManager(HWND hwnd)
@@ -1273,17 +1278,17 @@ int pascal far recvfrom (SOCKET s, char FAR * buf, int len, int flags,
 	return len;
 }
 
-#define	PPS_ERROR	NULL
+#define	PPS_ERROR	(void *)-1
 
 static	struct	per_socket **
-GetPPS(fd_set *fds)
+GetPPS(fd_set far *fds)
 {
 	struct per_socket **pps;
 	int	i;
 
 	_ENT();
 	if (!fds || !fds->fd_count)
-		return 0;
+		return NULL;
 	pps = (struct per_socket **) malloc(sizeof(struct per_socket *) *
 					fds->fd_count);
 	for (i = 0; i < fds->fd_count; i++)
