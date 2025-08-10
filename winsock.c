@@ -2049,3 +2049,11 @@ BOOL FAR PASCAL LibMain( HINSTANCE hInstance, WORD wDataSegment,
 {
 	return 1;
 }
+
+#pragma off (unreferenced);
+int FAR PASCAL WEP( int nParameter )
+#pragma on (unreferenced);
+{
+  //BreakPoint();
+  return( 1 );
+}
