@@ -39,20 +39,32 @@ static	struct	per_task	*pptList = 0;
 static	struct	per_socket	*ppsList = 0;
 static	struct	tx_queue	*ptxqList = 0;
 
+static int idComm;
+
 HWND	hwndManager = 0;
 BOOL	bEstablished = 0;
 
 static	void	FireAsyncRequest(struct tx_queue *ptxq);
 
+static void debug_out(const char *msg)
+{
+	if (idComm > 0)
+		WriteComm(idComm, msg, strlen(msg));
+}
+
+#define _ENT() debug_out("enter: " __FUNCTION__ "\r\n")
+
 void __cdecl
 RegisterManager(HWND hwnd)
 {
+	_ENT();
 	hwndManager = hwnd;
 }
 
 void __cdecl
 SetInitialised(void)
 {
+	_ENT();
 	bEstablished = TRUE;
 }
 
@@ -63,6 +75,7 @@ CopyDataIn(	void		*pvSource,
 		void		*pvDest,
 		int		nLen)
 {
+	_ENT();
 	switch(at)
 	{
 	case AT_Int16:
@@ -92,6 +105,7 @@ CopyDataOut(	void		*pvDest,
 		void		*pvSource,
 		int		nLen)
 {
+	_ENT();
 	switch(at)
 	{
 	case AT_Int16Ptr:
@@ -120,6 +134,7 @@ GetAnotherTaskInfo(HTASK htask)
 {
 	struct per_task *ppt;
 
+	_ENT();
 	for (ppt = pptList; ppt; ppt = ppt->pptNext)
 	{
 		if (ppt->htask == htask)
@@ -132,6 +147,7 @@ GetAnotherTaskInfo(HTASK htask)
 static	struct	per_task *
 GetTaskInfo(void)
 {
+	_ENT();
 	return GetAnotherTaskInfo(GetCurrentTask());
 }
 
@@ -141,7 +157,7 @@ GetSocketInfo(SOCKET s)
 {
 	struct per_socket *pps;
 
-
+	_ENT();
 	for (pps = ppsList; pps; pps = pps->ppsNext)
 	{
 		if (pps->s == s)
@@ -155,6 +171,7 @@ static	void
 Notify(struct per_socket *pps,
 	int iCode)
 {
+	_ENT();
 	if (pps->iEvents & iCode)
 		PostMessage(pps->hWnd, pps->wMsg, pps->s, WSAMAKESELECTREPLY(iCode, 0));
 }
@@ -164,6 +181,7 @@ NewSocket(struct per_task *ppt, SOCKET s)
 {
 	struct per_socket *ppsNew;
 
+	_ENT();
 	ppsNew = (struct per_socket *) malloc(sizeof(struct per_socket));
 	ppsNew->s = s;
 	ppsNew->iFlags = 0;
@@ -185,6 +203,7 @@ RemoveSocket(struct per_socket *pps)
 	struct	per_socket **ppps, *ppsParent;
 	struct	data	**ppd, *pd;
 
+	_ENT();
 	/* If our parent has noticed we're here, we need to remove ourselves
 	 * from the list of sockets awaiting acception.
 	 */
@@ -240,6 +259,7 @@ DataReceived(SOCKET s, void *pvData, int nLen, enum Functions ft)
 	struct	per_task *ppt;
 	int		ns;
 
+	_ENT();
 	pps = GetSocketInfo(s);
 	if (!pps)
 	{
@@ -299,6 +319,7 @@ DataReceived(SOCKET s, void *pvData, int nLen, enum Functions ft)
 static	BOOL
 StartBlocking(struct per_task *ppt)
 {
+	_ENT();
 	if (ppt->bBlocking)
 	{
 		iErrno = WSAEINPROGRESS;
@@ -315,6 +336,7 @@ StartBlocking(struct per_task *ppt)
 static	void
 EndBlocking(struct per_task *ppt)
 {
+	_ENT();
 	ppt->bBlocking = FALSE;
 }
 
@@ -324,6 +346,7 @@ FlushMessages(struct per_task *ppt)
 	MSG msg;
 	BOOL ret;
 
+	_ENT();
 	if (ppt->lpBlockFunc)
 		return ((BOOL far pascal (*)()) ppt->lpBlockFunc)();
 
@@ -347,6 +370,7 @@ RemoveTXQ(struct tx_queue *ptxq)
 {
 	struct	tx_queue **pptxq;
 
+	_ENT();
 	for (pptxq = &ptxqList; *pptxq; pptxq = &((*pptxq)->ptxqNext))
 	{
 		if (*pptxq == ptxq)
@@ -364,6 +388,7 @@ RemoveTask(struct per_task *ppt)
 {
 	struct per_task **pppt;
 
+	_ENT();
 	for (pppt = &pptList; *pppt; pppt = &((*pppt)->pptNext))
 	{
 		if (*pppt == ppt)
@@ -382,6 +407,7 @@ ResponseReceived(struct tx_request *ptxr)
 	struct	tx_queue *ptxq;
 	enum Functions	ft;
 
+	_ENT();
 	ft = (enum Functions) ntohs(ptxr->iType);
 	id = ntohs(ptxr->id);
 	nLen = ntohs(ptxr->nLen);
@@ -412,6 +438,7 @@ TransmitFunction(struct transmit_function *ptf)
 	struct	tx_queue *ptxq, **pptxq;
 	int	iOffset;
 
+	_ENT();
 	for (i = 0; i < ptf->nArgs; i++)
 		nSize += ptf->pfaList[i].iLen + sizeof(short) * 2;
 	nSize += ptf->pfaResult->iLen + sizeof(short) * 2;
@@ -467,6 +494,7 @@ SendEarlyClose(SOCKET s)
 	struct	transmit_function tf;
 	int	nReturn;
 
+	_ENT();
 	INIT_ARGS(pfaArgs[0],	AT_Int,		&s,		sizeof(s)		);
 	INIT_ARGS(pfaReturn,	AT_Int,		&nReturn,	sizeof(nReturn)		);
 	INIT_TF(tf, FN_Close, 1, pfaArgs, pfaReturn);
@@ -476,6 +504,7 @@ SendEarlyClose(SOCKET s)
 static void
 SetErrorResult(struct func_arg *pfaResult)
 {
+	_ENT();
 	switch (pfaResult->at)
 	{
 	case AT_Int16:
@@ -508,6 +537,7 @@ static	int	TransmitFunctionAndBlock(
 	int	i, iOffset;
 	BOOL	bError = FALSE;
 
+	_ENT();
 	if (!StartBlocking(ppt))
 	{
 		iErrno = WSAEINPROGRESS;
@@ -571,6 +601,7 @@ CopyHostEnt(struct per_task *ppt)
 	int	i;
 	int	nAddrs;
 
+	_ENT();
 	ppt->he.h_addrtype = ntohs(*(short *) ppt->achHostEnt);
 	ppt->he.h_length = ntohs(*(short *) (ppt->achHostEnt + sizeof(short)));
 	nAddrs = ntohs(*(short *) (ppt->achHostEnt + sizeof(short) * 2));
@@ -607,6 +638,7 @@ CopyHostEntTo(struct per_task *ppt, char *pchData)
 	char	*pchOld;
 	int	nAlii;
 
+	_ENT();
 	CopyHostEnt(ppt);
 
 	phe = (struct hostent *) pchData;
@@ -650,6 +682,7 @@ CopyServEnt(struct per_task *ppt)
 	int	iLocation;
 	int	i;
 
+	_ENT();
 	/* Note that s_port is needed in network byte order */
         ppt->se.s_port = *(short *) ppt->achServEnt;
 	iLocation = sizeof(short);
@@ -673,6 +706,7 @@ CopyServEntTo(struct per_task *ppt, char *pchData)
 	int	nAlii;
 	struct	servent *pse;
 
+	_ENT();
 	CopyServEnt(ppt);
 
 	pse = (struct servent *) pchData;
@@ -708,6 +742,7 @@ CopyProtoEnt(struct per_task *ppt)
 	int	i;
 	int	nAddrs;
 
+	_ENT();
 	ppt->pe.p_proto = ntohs(*(short *) ppt->achProtoEnt);
 	iLocation = sizeof(short);
 	ppt->pe.p_name = ppt->achProtoEnt + iLocation;
@@ -729,6 +764,7 @@ CopyProtoEntTo(struct per_task *ppt, char *pchData)
 	int	nAlii;
 	struct	protoent *ppe;
 
+	_ENT();
 	CopyProtoEnt(ppt);
 
 	ppe = (struct protoent *) pchData;
@@ -761,6 +797,7 @@ accept(SOCKET s, struct sockaddr FAR *addr,
 	struct per_socket *pps, *ppsNew;
 	struct data *pd;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -816,6 +853,7 @@ bind(SOCKET s, const struct sockaddr FAR *addr, int namelen)
 	struct	transmit_function tf;
 	struct	sockaddr	*psa;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if (!GetSocketInfo(s))
@@ -843,6 +881,7 @@ closesocket(SOCKET s)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -866,6 +905,7 @@ connect(SOCKET s, const struct sockaddr FAR *name, int namelen)
 	struct	transmit_function tf;
 	struct	sockaddr	*psa;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -895,6 +935,7 @@ ioctlsocket(SOCKET s, long cmd, u_long far * arg)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -932,6 +973,7 @@ int pascal far getpeername (SOCKET s, struct sockaddr FAR *name,
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if (!GetSocketInfo(s))
@@ -957,6 +999,7 @@ int pascal far getsockname (SOCKET s, struct sockaddr FAR *name,
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if (!GetSocketInfo(s))
@@ -985,6 +1028,7 @@ int pascal far getsockopt (SOCKET s, int level, int optname,
 	long	iOptVal;
 	short	iOptLen;
 
+	_ENT();
 	iOptLen = sizeof(long);
 
 	if ((ppt = GetTaskInfo()) == 0)
@@ -1021,6 +1065,7 @@ u_long pascal far htonl (u_long hostlong)
 	char	*pchValue = (char *) &hostlong;
 	char	c;
 
+	_ENT();
 	c = pchValue[0];
 	pchValue[0] = pchValue[3];
 	pchValue[3] = c;
@@ -1035,6 +1080,7 @@ u_short pascal far htons (u_short hostshort)
 	char	*pchValue = (char *) &hostshort;
 	char	c;
 
+	_ENT();
 	c = pchValue[0];
 	pchValue[0] = pchValue[1];
 	pchValue[1] = c;
@@ -1046,6 +1092,7 @@ unsigned long pascal far inet_addr (const char FAR * cp)
 	unsigned long	iValue;
 	char	*pchValue = (char *) &iValue;
 
+	_ENT();
 	if (!GetTaskInfo())
 		return -1;
 	pchValue[0] = atoi(cp);
@@ -1079,6 +1126,7 @@ char FAR * pascal far inet_ntoa (struct in_addr in)
 {
 	struct per_task *ppt;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return NULL;
 
@@ -1099,6 +1147,7 @@ int pascal far listen (SOCKET s, int backlog)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -1123,6 +1172,7 @@ u_long pascal far ntohl (u_long netlong)
 	char	*pchValue = (char *) &netlong;
 	char	c;
 
+	_ENT();
 	c = pchValue[0];
 	pchValue[0] = pchValue[3];
 	pchValue[3] = c;
@@ -1137,6 +1187,7 @@ u_short pascal far ntohs (u_short netshort)
 	char	*pchValue = (char *) &netshort;
 	char	c;
 
+	_ENT();
 	c = pchValue[0];
 	pchValue[0] = pchValue[1];
 	pchValue[1] = c;
@@ -1145,6 +1196,7 @@ u_short pascal far ntohs (u_short netshort)
 
 int pascal far recv (SOCKET s, char FAR * buf, int len, int flags)
 {
+	_ENT();
 	return recvfrom(s, buf, len, flags, 0, 0);
 }
 
@@ -1155,6 +1207,7 @@ int pascal far recvfrom (SOCKET s, char FAR * buf, int len, int flags,
 	struct per_socket *pps;
 	struct data *pd;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -1228,6 +1281,7 @@ GetPPS(fd_set *fds)
 	struct per_socket **pps;
 	int	i;
 
+	_ENT();
 	if (!fds || !fds->fd_count)
 		return 0;
 	pps = (struct per_socket **) malloc(sizeof(struct per_socket *) *
@@ -1256,6 +1310,7 @@ int pascal far select (int nfds, fd_set *readfds, fd_set far *writefds,
 	unsigned	long	tExpire;
 	int	i;
 
+	_ENT();
 	if (timeout)
 	{
 		tExpire = GetTickCount();
@@ -1359,6 +1414,7 @@ int pascal far send (SOCKET s, const char FAR * buf, int len, int flags)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -1395,6 +1451,7 @@ int pascal far sendto (SOCKET s, const char FAR * buf, int len, int flags,
 	struct	transmit_function tf;
 	struct	sockaddr	*psa;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -1428,6 +1485,7 @@ int pascal far setsockopt (SOCKET s, int level, int optname,
 	long	iOptVal;
 	short	iOptLen;
 
+	_ENT();
 	iOptLen = sizeof(long);
 
 	if ((ppt = GetTaskInfo()) == 0)
@@ -1462,6 +1520,7 @@ int pascal far shutdown (SOCKET s, int how)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -1485,6 +1544,7 @@ SOCKET pascal far socket (int af, int type, int protocol)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	INIT_ARGS(pfaArgs[0],	AT_Int,		&af,		sizeof(af)		);
@@ -1506,6 +1566,7 @@ struct hostent FAR * pascal far gethostbyaddr(const char FAR * addr,
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_CARGS(pfaArgs[0],	AT_GenPtr,	addr,		len			);
@@ -1531,6 +1592,7 @@ struct hostent FAR * pascal far gethostbyname(const char FAR * name)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_CARGS(pfaArgs[0],	AT_String,	name,		strlen(name) + 1	);
@@ -1554,6 +1616,7 @@ struct servent FAR * pascal far getservbyport(int port, const char FAR * proto)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	PORTSWAP(port);
@@ -1582,6 +1645,7 @@ struct servent FAR * pascal far getservbyname(const char FAR * name,
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	if (!proto)
@@ -1608,6 +1672,7 @@ struct protoent FAR * pascal far getprotobynumber(int proto)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_ARGS(pfaArgs[0],	AT_Int,		&proto,		sizeof(proto)	);
@@ -1631,6 +1696,7 @@ struct protoent FAR * pascal far getprotobyname(const char FAR * name)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_CARGS(pfaArgs[0],	AT_String,	name,		strlen(name) + 1	);
@@ -1656,6 +1722,7 @@ gethostname(char *name, int namelen)
 	struct	func_arg pfaReturn;
 	struct	transmit_function tf;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	INIT_ARGS(pfaArgs[0],	AT_String,	name,		namelen		);
@@ -1670,6 +1737,7 @@ int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
 {
 	struct	per_task	*pptNew;
 
+	_ENT();
 	lpWSAData->wVersion = 0x0101;
 	lpWSAData->wHighVersion = 0x0101;
 	strcpy(lpWSAData->szDescription,
@@ -1705,6 +1773,7 @@ int pascal far WSACleanup(void)
 {
 	struct	per_task *ppt;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if (ppt->bBlocking)
@@ -1718,6 +1787,7 @@ int pascal far WSACleanup(void)
 
 void pascal far WSASetLastError(int iError)
 {
+	_ENT();
 	if (!GetTaskInfo())
 		return;
 	iErrno = iError;
@@ -1725,6 +1795,7 @@ void pascal far WSASetLastError(int iError)
 
 int pascal far WSAGetLastError(void)
 {
+	_ENT();
 	return iErrno;
 }
 
@@ -1732,6 +1803,7 @@ BOOL pascal far WSAIsBlocking(void)
 {
 	struct per_task *ppt;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	return ppt->bBlocking;
@@ -1741,6 +1813,7 @@ int pascal far WSAUnhookBlockingHook(void)
 {
 	struct	per_task *ppt;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	ppt->lpBlockFunc = 0;
@@ -1751,6 +1824,7 @@ FARPROC pascal far WSASetBlockingHook(FARPROC lpBlockFunc)
 {
 	struct per_task *ppt;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return NULL;
 	ppt->lpBlockFunc = lpBlockFunc;
@@ -1761,6 +1835,7 @@ int pascal far WSACancelBlockingCall(void)
 {
 	struct	per_task *ppt;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if (ppt->bBlocking)
@@ -1782,6 +1857,7 @@ FireAsyncRequest(struct tx_queue *ptxq)
 	char	*pchData;
 	struct	per_task *ppt;
 
+	_ENT();
 	if (ptxq->ptxr->nError)
 	{
 		PostMessage(ptxq->hwnd, ptxq->wMsg, ptxq->id | 0x4000,
@@ -1841,6 +1917,7 @@ HANDLE pascal far WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
 	struct	transmit_function tf;
 	struct	tx_queue *txq;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	if (!proto)
@@ -1868,6 +1945,7 @@ HANDLE pascal far WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
 	struct	transmit_function tf;
 	struct	tx_queue *txq;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	port = PORTSWAP(port);
@@ -1896,6 +1974,7 @@ HANDLE pascal far WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
 	struct	transmit_function tf;
 	struct	tx_queue *txq;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_CARGS(pfaArgs[0],	AT_String,	name,		strlen(name) + 1	);
@@ -1920,6 +1999,7 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
 	struct	transmit_function tf;
 	struct	tx_queue *txq;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_CARGS(pfaArgs[0],	AT_Int,		&number,	sizeof(number)		);
@@ -1944,6 +2024,7 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
 	struct	transmit_function tf;
 	struct	tx_queue *txq;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_CARGS(pfaArgs[0],	AT_GenPtr,	name,		strlen(name) + 1	);
@@ -1968,6 +2049,7 @@ HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
 	struct	transmit_function tf;
 	struct	tx_queue *txq;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return 0;
 	INIT_CARGS(pfaArgs[0],	AT_GenPtr,	addr,		len			);
@@ -1988,6 +2070,7 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 {
 	struct	tx_queue *ptxq;
 
+	_ENT();
 	if (!GetTaskInfo())
 		return -1;
 
@@ -2009,6 +2092,7 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg,
 	struct	per_task *ppt;
 	struct	per_socket *pps;
 
+	_ENT();
 	if ((ppt = GetTaskInfo()) == 0)
 		return -1;
 	if ((pps = GetSocketInfo(s)) == 0)
@@ -2032,6 +2116,7 @@ int FAR PASCAL _WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
 {
 	int	i;
 
+	_ENT();
 	if (!GetTaskInfo())
 		return -1;
 	if (!GetSocketInfo(s))
@@ -2047,6 +2132,8 @@ int FAR PASCAL _WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
 BOOL FAR PASCAL LibMain( HINSTANCE hInstance, WORD wDataSegment,
                          WORD wHeapSize, LPSTR lpszCmdLine )
 {
+	idComm = OpenComm("COM4", 16384, 16384);
+	_ENT();
 	return 1;
 }
 
@@ -2054,6 +2141,8 @@ BOOL FAR PASCAL LibMain( HINSTANCE hInstance, WORD wDataSegment,
 int FAR PASCAL WEP( int nParameter )
 #pragma on (unreferenced);
 {
-  //BreakPoint();
-  return( 1 );
+	_ENT();
+	if (idComm > 0)
+		CloseComm(idComm);
+	return( 1 );
 }
