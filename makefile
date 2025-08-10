@@ -5,7 +5,7 @@ OUTDIR = RELEASE
 WTLIB = w16/libcsock.lib
 
 CC = wcc
-CFLAGS = -ml -3 -zc -bt=windows -bm -bd -ox -d3
+CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu
 LINK=wlink
 
 all: $(OUTDIR) $(OUTDIR)/$(DLLNAME)
@@ -21,6 +21,8 @@ a.lnk:
 	echo debug all >$@
 	echo file $(OUTDIR)/$(NAME).obj >>$@
 	echo option oneautodata >>$@
+	echo option heapsize=32K >>$@
+	echo option stack=8K >>$@
 	echo system windows dll initinstance memory >>$@
 	echo libfile libentry.obj >>$@
 	echo export=$(NAME).lbc >>$@
