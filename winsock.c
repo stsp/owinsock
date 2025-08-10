@@ -1304,8 +1304,8 @@ GetPPS(fd_set far *fds)
 }
 
 
-int pascal far select (int nfds, fd_set *readfds, fd_set far *writefds,
-                fd_set *exceptfds, const struct timeval far *timeout)
+int pascal far select (int nfds, fd_set far *readfds, fd_set far *writefds,
+                fd_set far *exceptfds, const struct timeval far *timeout)
 {
 	struct per_task *ppt;
 	struct per_socket **ppsRead, **ppsWrite, **ppsExcept;
@@ -1342,7 +1342,7 @@ int pascal far select (int nfds, fd_set *readfds, fd_set far *writefds,
 		free(ppsWrite);
 		return -1;
 	}
-		
+
 	while (!bOneOK && !bTimedOut && !ppt->bCancel)
 	{
 		FlushMessages(ppt);
