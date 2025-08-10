@@ -1,5 +1,6 @@
 OWDIR = $(WATCOM)
 NAME = winsock
+DLLNAME = WINSOCK.DLL
 OUTDIR = RELEASE
 WTLIB = w16/libcsock.lib
 
@@ -7,12 +8,12 @@ CC = wcc
 CFLAGS = -ml -3 -zc -bt=windows -bm -bd -ox -d3
 LINK=wlink
 
-all: $(OUTDIR) $(OUTDIR)/$(NAME).dll
+all: $(OUTDIR) $(OUTDIR)/$(DLLNAME)
 
 $(OUTDIR):
 	@mkdir $(OUTDIR)
 
-$(OUTDIR)/$(NAME).dll: $(OUTDIR)/$(NAME).obj a.lnk
+$(OUTDIR)/$(DLLNAME): $(OUTDIR)/$(NAME).obj a.lnk
 	$(LINK) name $@ op quiet, eliminate, map=$(dir $@)$(NAME).map, implib=$(dir $@)$(NAME).imp @a.lnk
 	chmod -x $@
 
