@@ -44,13 +44,13 @@ BOOL	bEstablished = 0;
 
 static	void	FireAsyncRequest(struct tx_queue *ptxq);
 
-void __cdecl _export
+void __cdecl
 RegisterManager(HWND hwnd)
 {
 	hwndManager = hwnd;
 }
 
-void __cdecl _export
+void __cdecl
 SetInitialised(void)
 {
 	bEstablished = TRUE;
@@ -374,7 +374,7 @@ RemoveTask(struct per_task *ppt)
 	}
 };
 
-void far __cdecl _export
+void far __cdecl
 ResponseReceived(struct tx_request *ptxr)
 {
 	int		nLen;
@@ -753,7 +753,7 @@ CopyProtoEntTo(struct per_task *ppt, char *pchData)
 	return (pchData - (char *) ppe);
 }
 
-SOCKET pascal far _export
+SOCKET pascal far
 accept(SOCKET s, struct sockaddr FAR *addr,
                           int FAR *addrlen)
 {
@@ -805,7 +805,7 @@ accept(SOCKET s, struct sockaddr FAR *addr,
 	return ppsNew->s;
 }
 
-int pascal far _export
+int pascal far
 bind(SOCKET s, const struct sockaddr FAR *addr, int namelen)
 {
 	struct per_task *ppt;
@@ -833,7 +833,7 @@ bind(SOCKET s, const struct sockaddr FAR *addr, int namelen)
 	return nReturn;
 }
 
-int pascal far _export
+int pascal far
 closesocket(SOCKET s)
 {
 	struct per_task *ppt;
@@ -855,7 +855,7 @@ closesocket(SOCKET s)
 	return nReturn;
 }
 
-int pascal far _export
+int pascal far
 connect(SOCKET s, const struct sockaddr FAR *name, int namelen)
 {
 	struct per_task *ppt;
@@ -885,7 +885,7 @@ connect(SOCKET s, const struct sockaddr FAR *name, int namelen)
 	return nReturn;
 }
 
-int pascal far _export
+int pascal far
 ioctlsocket(SOCKET s, long cmd, u_long far * arg)
 {
 	struct per_task *ppt;
@@ -922,7 +922,7 @@ ioctlsocket(SOCKET s, long cmd, u_long far * arg)
 	return 0;
 }
 
-int pascal far _export getpeername (SOCKET s, struct sockaddr FAR *name,
+int pascal far getpeername (SOCKET s, struct sockaddr FAR *name,
                             int FAR * namelen)
 {
 	struct per_task *ppt;
@@ -947,7 +947,7 @@ int pascal far _export getpeername (SOCKET s, struct sockaddr FAR *name,
 	return nReturn;
 }
 
-int pascal far _export getsockname (SOCKET s, struct sockaddr FAR *name,
+int pascal far getsockname (SOCKET s, struct sockaddr FAR *name,
                             int FAR * namelen)
 {
 	struct per_task *ppt;
@@ -973,7 +973,7 @@ int pascal far _export getsockname (SOCKET s, struct sockaddr FAR *name,
 	return nReturn;
 }
 
-int pascal far _export getsockopt (SOCKET s, int level, int optname,
+int pascal far getsockopt (SOCKET s, int level, int optname,
                            char FAR * optval, int FAR *optlen)
 {
 	struct per_task *ppt;
@@ -1016,7 +1016,7 @@ int pascal far _export getsockopt (SOCKET s, int level, int optname,
 	return nReturn;
 }
 
-u_long pascal far _export htonl (u_long hostlong)
+u_long pascal far htonl (u_long hostlong)
 {
 	char	*pchValue = (char *) &hostlong;
 	char	c;
@@ -1030,7 +1030,7 @@ u_long pascal far _export htonl (u_long hostlong)
 	return hostlong;
 }
 
-u_short pascal far _export htons (u_short hostshort)
+u_short pascal far htons (u_short hostshort)
 {
 	char	*pchValue = (char *) &hostshort;
 	char	c;
@@ -1041,7 +1041,7 @@ u_short pascal far _export htons (u_short hostshort)
 	return hostshort;
 }
 
-unsigned long pascal far _export inet_addr (const char FAR * cp)
+unsigned long pascal far inet_addr (const char FAR * cp)
 {
 	unsigned long	iValue;
 	char	*pchValue = (char *) &iValue;
@@ -1075,7 +1075,7 @@ unsigned long pascal far _export inet_addr (const char FAR * cp)
 	return -1;
 }
 
-char FAR * pascal far _export inet_ntoa (struct in_addr in)
+char FAR * pascal far inet_ntoa (struct in_addr in)
 {
 	struct per_task *ppt;
 
@@ -1090,7 +1090,7 @@ char FAR * pascal far _export inet_ntoa (struct in_addr in)
 	return ppt->achAddress;
 }
 
-int pascal far _export listen (SOCKET s, int backlog)
+int pascal far listen (SOCKET s, int backlog)
 {
 	struct per_task *ppt;
 	struct per_socket *pps;
@@ -1118,7 +1118,7 @@ int pascal far _export listen (SOCKET s, int backlog)
 	return nReturn;
 }
 
-u_long pascal far _export ntohl (u_long netlong)
+u_long pascal far ntohl (u_long netlong)
 {
 	char	*pchValue = (char *) &netlong;
 	char	c;
@@ -1132,7 +1132,7 @@ u_long pascal far _export ntohl (u_long netlong)
 	return netlong;
 }
 
-u_short pascal far _export ntohs (u_short netshort)
+u_short pascal far ntohs (u_short netshort)
 {
 	char	*pchValue = (char *) &netshort;
 	char	c;
@@ -1143,12 +1143,12 @@ u_short pascal far _export ntohs (u_short netshort)
 	return netshort;
 }
 
-int pascal far _export recv (SOCKET s, char FAR * buf, int len, int flags)
+int pascal far recv (SOCKET s, char FAR * buf, int len, int flags)
 {
 	return recvfrom(s, buf, len, flags, 0, 0);
 }
 
-int pascal far _export recvfrom (SOCKET s, char FAR * buf, int len, int flags,
+int pascal far recvfrom (SOCKET s, char FAR * buf, int len, int flags,
                          struct sockaddr FAR *from, int FAR * fromlen)
 {
 	struct per_task *ppt;
@@ -1245,7 +1245,7 @@ GetPPS(fd_set *fds)
 }
 
 
-int pascal far _export select (int nfds, fd_set *readfds, fd_set far *writefds,
+int pascal far select (int nfds, fd_set *readfds, fd_set far *writefds,
                 fd_set *exceptfds, const struct timeval far *timeout)
 {
 	struct per_task *ppt;
@@ -1350,7 +1350,7 @@ int pascal far _export select (int nfds, fd_set *readfds, fd_set far *writefds,
  * This causes certain FTP clients to display phenomenal transfer rates.
  * They should be checking the transfer rates *after* closing their sockets.
  */
-int pascal far _export send (SOCKET s, const char FAR * buf, int len, int flags)
+int pascal far send (SOCKET s, const char FAR * buf, int len, int flags)
 {
 	struct per_task *ppt;
 	struct per_socket *pps;
@@ -1384,7 +1384,7 @@ int pascal far _export send (SOCKET s, const char FAR * buf, int len, int flags)
 	return len;
 }
 
-int pascal far _export sendto (SOCKET s, const char FAR * buf, int len, int flags,
+int pascal far sendto (SOCKET s, const char FAR * buf, int len, int flags,
                        const struct sockaddr FAR *to, int tolen)
 {
 	struct per_task *ppt;
@@ -1416,7 +1416,7 @@ int pascal far _export sendto (SOCKET s, const char FAR * buf, int len, int flag
 	return nReturn;
 }
 
-int pascal far _export setsockopt (SOCKET s, int level, int optname,
+int pascal far setsockopt (SOCKET s, int level, int optname,
                            const char FAR * optval, int optlen)
 {
 	struct per_task *ppt;
@@ -1453,7 +1453,7 @@ int pascal far _export setsockopt (SOCKET s, int level, int optname,
 	return nReturn;
 }
 
-int pascal far _export shutdown (SOCKET s, int how)
+int pascal far shutdown (SOCKET s, int how)
 {
 	struct per_task *ppt;
 	struct per_socket *pps;
@@ -1476,7 +1476,7 @@ int pascal far _export shutdown (SOCKET s, int how)
 	return nReturn;
 }
 
-SOCKET pascal far _export socket (int af, int type, int protocol)
+SOCKET pascal far socket (int af, int type, int protocol)
 {
 	struct per_task *ppt;
 	struct per_socket *pps;
@@ -1498,7 +1498,7 @@ SOCKET pascal far _export socket (int af, int type, int protocol)
 	return nReturn;
 }
 
-struct hostent FAR * pascal far _export gethostbyaddr(const char FAR * addr,
+struct hostent FAR * pascal far gethostbyaddr(const char FAR * addr,
                                               int len, int type)
 {
 	struct per_task *ppt;
@@ -1524,7 +1524,7 @@ struct hostent FAR * pascal far _export gethostbyaddr(const char FAR * addr,
 	}
 }
 
-struct hostent FAR * pascal far _export gethostbyname(const char FAR * name)
+struct hostent FAR * pascal far gethostbyname(const char FAR * name)
 {
 	struct per_task *ppt;
 	struct	func_arg pfaArgs[1];
@@ -1547,7 +1547,7 @@ struct hostent FAR * pascal far _export gethostbyname(const char FAR * name)
 	}
 }
 
-struct servent FAR * pascal far _export getservbyport(int port, const char FAR * proto)
+struct servent FAR * pascal far getservbyport(int port, const char FAR * proto)
 {
 	struct per_task *ppt;
 	struct	func_arg pfaArgs[2];
@@ -1574,7 +1574,7 @@ struct servent FAR * pascal far _export getservbyport(int port, const char FAR *
 	}
 }
 
-struct servent FAR * pascal far _export getservbyname(const char FAR * name,
+struct servent FAR * pascal far getservbyname(const char FAR * name,
                                               const char FAR * proto)
 {
 	struct per_task *ppt;
@@ -1601,7 +1601,7 @@ struct servent FAR * pascal far _export getservbyname(const char FAR * name,
 	}
 }
 
-struct protoent FAR * pascal far _export getprotobynumber(int proto)
+struct protoent FAR * pascal far getprotobynumber(int proto)
 {
 	struct per_task *ppt;
 	struct	func_arg pfaArgs[1];
@@ -1624,7 +1624,7 @@ struct protoent FAR * pascal far _export getprotobynumber(int proto)
 	}
 }
 
-struct protoent FAR * pascal far _export getprotobyname(const char FAR * name)
+struct protoent FAR * pascal far getprotobyname(const char FAR * name)
 {
 	struct per_task *ppt;
 	struct	func_arg pfaArgs[1];
@@ -1647,7 +1647,7 @@ struct protoent FAR * pascal far _export getprotobyname(const char FAR * name)
 	}
 }
 
-int pascal far _export
+int pascal far
 gethostname(char *name, int namelen)
 {
 	struct per_task *ppt;
@@ -1666,7 +1666,7 @@ gethostname(char *name, int namelen)
 	return nReturn;
 }
 
-int pascal far _export WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
+int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
 {
 	struct	per_task	*pptNew;
 
@@ -1701,7 +1701,7 @@ int pascal far _export WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
 	return 0;
 }
 
-int pascal far _export WSACleanup(void)
+int pascal far WSACleanup(void)
 {
 	struct	per_task *ppt;
 
@@ -1716,19 +1716,19 @@ int pascal far _export WSACleanup(void)
 	return 0;
 }
 
-void pascal far _export WSASetLastError(int iError)
+void pascal far WSASetLastError(int iError)
 {
 	if (!GetTaskInfo())
 		return;
 	iErrno = iError;
 }
 
-int pascal far _export WSAGetLastError(void)
+int pascal far WSAGetLastError(void)
 {
 	return iErrno;
 }
 
-BOOL pascal far _export WSAIsBlocking(void)
+BOOL pascal far WSAIsBlocking(void)
 {
 	struct per_task *ppt;
 
@@ -1737,7 +1737,7 @@ BOOL pascal far _export WSAIsBlocking(void)
 	return ppt->bBlocking;
 }
 
-int pascal far _export WSAUnhookBlockingHook(void)
+int pascal far WSAUnhookBlockingHook(void)
 {
 	struct	per_task *ppt;
 
@@ -1747,7 +1747,7 @@ int pascal far _export WSAUnhookBlockingHook(void)
 	return 0;
 }
 
-FARPROC pascal far _export WSASetBlockingHook(FARPROC lpBlockFunc)
+FARPROC pascal far WSASetBlockingHook(FARPROC lpBlockFunc)
 {
 	struct per_task *ppt;
 
@@ -1757,7 +1757,7 @@ FARPROC pascal far _export WSASetBlockingHook(FARPROC lpBlockFunc)
 	return NULL;
 }
 
-int pascal far _export WSACancelBlockingCall(void)
+int pascal far WSACancelBlockingCall(void)
 {
 	struct	per_task *ppt;
 
@@ -1830,7 +1830,7 @@ FireAsyncRequest(struct tx_queue *ptxq)
 	RemoveTXQ(ptxq);
 }
 
-HANDLE pascal far _export WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
+HANDLE pascal far WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
                                         const char FAR * name,
 					const char FAR * proto,
                                         char FAR * buf, int buflen)
@@ -1858,7 +1858,7 @@ HANDLE pascal far _export WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
 	return (txq->id | 0x4000);
 }
 
-HANDLE pascal far _export WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
+HANDLE pascal far WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
                                         const char FAR * proto, char FAR * buf,
                                         int buflen)
 {
@@ -1886,7 +1886,7 @@ HANDLE pascal far _export WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
 	return (txq->id | 0x4000);
 }
 
-HANDLE pascal far _export WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
+HANDLE pascal far WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
                                          const char FAR * name, char FAR * buf,
                                          int buflen)
 {
@@ -1910,7 +1910,7 @@ HANDLE pascal far _export WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
 	return (txq->id | 0x4000);
 }
 
-HANDLE pascal far _export WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
+HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
                                            int number, char FAR * buf,
                                            int buflen)
 {
@@ -1934,7 +1934,7 @@ HANDLE pascal far _export WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
 	return (txq->id | 0x4000);
 }
 
-HANDLE pascal far _export WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
+HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
                                         const char FAR * name, char FAR * buf,
                                         int buflen)
 {
@@ -1958,7 +1958,7 @@ HANDLE pascal far _export WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
 	return (txq->id | 0x4000);
 }
 
-HANDLE pascal far _export WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
+HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
                                         const char FAR * addr, int len, int type,
                                         char FAR * buf, int buflen)
 {
@@ -1984,7 +1984,7 @@ HANDLE pascal far _export WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
 	return (txq->id | 0x4000);
 }
 
-int pascal far _export WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
+int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 {
 	struct	tx_queue *ptxq;
 
@@ -2003,7 +2003,7 @@ int pascal far _export WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 	return -1;
 }
 
-int pascal far _export WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg,
+int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg,
                                long lEvent)
 {
 	struct	per_task *ppt;
@@ -2028,7 +2028,7 @@ int pascal far _export WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg,
 	return 0;
 }
 
-int FAR PASCAL _export _WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
+int FAR PASCAL _WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
 {
 	int	i;
 
