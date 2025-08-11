@@ -53,11 +53,9 @@ EXPORTS
         WSAISBLOCKING                  @114
         WSASTARTUP                     @115
         WSACLEANUP                     @116
-
-        _WSAFDISSET                    @151
-
-        WEP                            @500    RESIDENTNAME
-
-        _ResponseReceived              @10000
-        _RegisterManager               @10001
-        _SetInitialised                @10002
+        __WSAFDISSET                   @151
+        RESPONSERECEIVED               @200
+        REGISTERMANAGER                @201
+        SETINITIALISED                 @202
+        WEP                            @203
+        LIBMAIN                        @204

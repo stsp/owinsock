@@ -59,14 +59,14 @@ static void debug_out(const char *msg)
 	debug_out(_buf); \
 }
 
-void __cdecl
+void far pascal
 RegisterManager(HWND hwnd)
 {
 	_ENT();
 	hwndManager = hwnd;
 }
 
-void __cdecl
+void far pascal
 SetInitialised(void)
 {
 	_ENT();
@@ -404,7 +404,7 @@ RemoveTask(struct per_task *ppt)
 	}
 };
 
-void far __cdecl
+void far pascal
 ResponseReceived(struct tx_request *ptxr)
 {
 	int		nLen;
@@ -2117,7 +2117,7 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg,
 	return 0;
 }
 
-int FAR PASCAL _WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
+int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
 {
 	int	i;
 
