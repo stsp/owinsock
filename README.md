@@ -1,2 +1,2 @@
-# owsock
+# owinsock
 winsock for openwatcom
