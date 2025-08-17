@@ -20,8 +20,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 static int idComm;
+_WCRTLINK void _set_blocking_hook(int (far * hook) (void));
+
+struct per_task {
+    HTASK task;
+    FARPROC BlockingHook;
+    int cancel;
+};
+#define MAX_TASKS 10
+struct per_task tasks[MAX_TASKS];
+static int num_tasks;
 
 static void debug_out(const char *msg)
 {
@@ -36,6 +47,44 @@ static void debug_out(const char *msg)
 	debug_out(_buf); \
 }
 
+static void task_alloc(HTASK task)
+{
+    struct per_task *ret;
+    int i;
+
+    assert(task);
+    for (i = 0; i < num_tasks; i++) {
+        if (!tasks[i].task)
+            break;
+    }
+    if (i == num_tasks) {
+        assert(num_tasks < MAX_TASKS);
+        num_tasks++;
+    }
+    ret = &tasks[i];
+    ret->task = task;
+    ret->BlockingHook = NULL;
+    ret->cancel = 0;
+}
+
+static void task_free(struct per_task *task)
+{
+    task->task = NULL;
+    while (num_tasks && !tasks[num_tasks - 1].task)
+        num_tasks--;
+}
+
+static struct per_task *task_find(HTASK task)
+{
+    int i;
+
+    for (i = 0; i < num_tasks; i++) {
+	if (tasks[i].task == task)
+	    return &tasks[i];
+    }
+    return NULL;
+}
+
 int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
 {
     int i;
@@ -48,11 +97,44 @@ int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
     return FALSE;
 }
 
+static BOOL far pascal DefaultBlockingHook(void)
+{
+    MSG msg;
+    BOOL ret;
+    /* get the next message if any */
+    ret = (BOOL) PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+    /* if we got one, process it */
+    if (ret) {
+	TranslateMessage(&msg);
+	DispatchMessage(&msg);
+    }
+    /* TRUE if we got a message */
+    return ret;
+}
+
+static int blk_func(void)
+{
+    FARPROC BlockingHook;
+    struct per_task *task = task_find(GetCurrentTask());
+
+    assert(task);
+    BlockingHook = task->BlockingHook ? task->BlockingHook : DefaultBlockingHook;
+    /* flush messages for good user response */
+    while (BlockingHook());
+    /* check for WSACancelBlockingCall() */
+    if (task->cancel) {
+        task->cancel = 0;
+        return 0;
+    }
+    return 1;
+}
+
 BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 			WORD wHeapSize, LPSTR lpszCmdLine)
 {
-    idComm = OpenComm("COM4", 16384, 16384);
     _ENT();
+    idComm = OpenComm("COM4", 16384, 16384);
+    _set_blocking_hook(blk_func);
     return 1;
 }
 
@@ -61,6 +143,7 @@ int FAR PASCAL WEP(int nParameter)
 #pragma on (unreferenced);
 {
     _ENT();
+    _set_blocking_hook(NULL);
     if (idComm > 0)
 	CloseComm(idComm);
     return (1);
@@ -139,14 +222,28 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
 int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
 {
     _ENT();
-    /* TODO! */
+    lpWSAData->wVersion = 0x0101;
+    lpWSAData->wHighVersion = 0x0101;
+    strcpy(lpWSAData->szDescription,
+		"OWinSock - dosemu2 sockets. "
+		"Copyright 2025 @stsp. "
+		"OWinSock is free software, GPLv3+. ");
+    strcpy(lpWSAData->szSystemStatus, "Ready.");
+    lpWSAData->iMaxSockets = 256;
+    lpWSAData->iMaxUdpDg = 512;
+    lpWSAData->lpVendorInfo = 0;
+    if (wVersionRequired == 0x0001)
+	return WSAVERNOTSUPPORTED;
+    task_alloc(GetCurrentTask());
     return 0;
 }
 
 int pascal far WSACleanup(void)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
+    assert(task);
+    task_free(task);
     return 0;
 }
 
@@ -172,21 +269,33 @@ BOOL pascal far WSAIsBlocking(void)
 
 int pascal far WSAUnhookBlockingHook(void)
 {
+    FARPROC BlockingHook;
+    struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
-    /* TODO! */
+    assert(task);
+    task->BlockingHook = NULL;
     return 0;
 }
 
 FARPROC pascal far WSASetBlockingHook(FARPROC lpBlockFunc)
 {
+    FARPROC ret;
+    struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
-    /* TODO! */
-    return 0;
+    assert(task);
+    ret = task->BlockingHook;
+    task->BlockingHook = lpBlockFunc;
+    return ret;
 }
 
 int pascal far WSACancelBlockingCall(void)
 {
+    struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
-    /* TODO! */
+    assert(task);
+    task->cancel++;
     return 0;
 }
