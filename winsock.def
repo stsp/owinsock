@@ -37,25 +37,5 @@ EXPORTS
         GETSERVBYPORT                  @56
         GETHOSTNAME                    @57
 
-        WSAASYNCSELECT                 @101
-        WSAASYNCGETHOSTBYADDR          @102
-        WSAASYNCGETHOSTBYNAME          @103
-        WSAASYNCGETPROTOBYNUMBER       @104
-        WSAASYNCGETPROTOBYNAME         @105
-        WSAASYNCGETSERVBYPORT          @106
-        WSAASYNCGETSERVBYNAME          @107
-        WSACANCELASYNCREQUEST          @108
-        WSASETBLOCKINGHOOK             @109
-        WSAUNHOOKBLOCKINGHOOK          @110
-        WSAGETLASTERROR                @111
-        WSASETLASTERROR                @112
-        WSACANCELBLOCKINGCALL          @113
-        WSAISBLOCKING                  @114
-        WSASTARTUP                     @115
-        WSACLEANUP                     @116
-        __WSAFDISSET                   @151
-        RESPONSERECEIVED               @200
-        REGISTERMANAGER                @201
-        SETINITIALISED                 @202
         WEP                            @203
         LIBMAIN                        @204

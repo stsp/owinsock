@@ -2,10 +2,10 @@ OWDIR = $(WATCOM)
 NAME = winsock
 DLLNAME = WINSOCK.DLL
 OUTDIR = RELEASE
-WTLIB = w16/libcsock.lib
+WTLIB = libd2sock/W16/libd2sock.lib
 
 CC = wcc
-CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu
+CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu -I$(WATCOM)/h/win
 LINK=wlink
 
 all: $(OUTDIR) $(OUTDIR)/$(DLLNAME)
@@ -20,8 +20,6 @@ $(OUTDIR)/$(DLLNAME): $(OUTDIR)/$(NAME).obj a.lnk $(NAME).lbc
 a.lnk:
 	echo file $(OUTDIR)/$(NAME).obj >$@
 	echo option oneautodata >>$@
-	echo option heapsize=32K >>$@
-	echo option stack=8K >>$@
 	echo system windows dll initinstance memory >>$@
 	echo libfile libentry.obj >>$@
 	echo export=$(NAME).lbc >>$@
