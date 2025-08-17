@@ -25,8 +25,8 @@ static int idComm;
 
 static void debug_out(const char *msg)
 {
-	if (idComm > 0)
-		WriteComm(idComm, msg, strlen(msg));
+    if (idComm > 0)
+	WriteComm(idComm, msg, strlen(msg));
 }
 
 #define _ENT() debug_out("enter: " __FUNCTION__ "\r\n")
@@ -38,31 +38,155 @@ static void debug_out(const char *msg)
 
 int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
 {
-	int i;
+    int i;
 
-	_ENT();
-	for (i = 0; i < pfds->fd_count; i++)
-	{
-		if (pfds->fd_array[i] == s)
-			return TRUE;
-	}
-	return FALSE;
+    _ENT();
+    for (i = 0; i < pfds->fd_count; i++) {
+	if (pfds->fd_array[i] == s)
+	    return TRUE;
+    }
+    return FALSE;
 }
 
-BOOL FAR PASCAL LibMain( HINSTANCE hInstance, WORD wDataSegment,
-                         WORD wHeapSize, LPSTR lpszCmdLine )
+BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
+			WORD wHeapSize, LPSTR lpszCmdLine)
 {
-	idComm = OpenComm("COM4", 16384, 16384);
-	_ENT();
-	return 1;
+    idComm = OpenComm("COM4", 16384, 16384);
+    _ENT();
+    return 1;
 }
 
 #pragma off (unreferenced);
-int FAR PASCAL WEP( int nParameter )
+int FAR PASCAL WEP(int nParameter)
 #pragma on (unreferenced);
 {
-	_ENT();
-	if (idComm > 0)
-		CloseComm(idComm);
-	return( 1 );
+    _ENT();
+    if (idComm > 0)
+	CloseComm(idComm);
+    return (1);
+}
+
+HANDLE pascal far WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
+					const char FAR *name,
+					const char FAR *proto,
+					char FAR *buf, int buflen)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+HANDLE pascal far WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
+					const char FAR *proto,
+					char FAR *buf, int buflen)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+HANDLE pascal far WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
+					 const char FAR *name,
+					 char FAR *buf, int buflen)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
+					   int number, char FAR *buf,
+					   int buflen)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
+					const char FAR *name,
+					char FAR *buf, int buflen)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
+					const char FAR *addr, int len,
+					int type, char FAR *buf,
+					int buflen)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+int pascal far WSACleanup(void)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+void pascal far WSASetLastError(int iError)
+{
+    _ENT();
+    /* TODO! */
+}
+
+int pascal far WSAGetLastError(void)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+BOOL pascal far WSAIsBlocking(void)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+int pascal far WSAUnhookBlockingHook(void)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+FARPROC pascal far WSASetBlockingHook(FARPROC lpBlockFunc)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
+}
+
+int pascal far WSACancelBlockingCall(void)
+{
+    _ENT();
+    /* TODO! */
+    return 0;
 }
