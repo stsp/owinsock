@@ -29,6 +29,7 @@ struct per_task {
     HTASK task;
     FARPROC BlockingHook;
     int cancel;
+    int wsa_err;
 };
 #define MAX_TASKS 10
 struct per_task tasks[MAX_TASKS];
@@ -62,9 +63,8 @@ static void task_alloc(HTASK task)
         num_tasks++;
     }
     ret = &tasks[i];
+    memset(ret, 0, sizeof(*ret));
     ret->task = task;
-    ret->BlockingHook = NULL;
-    ret->cancel = 0;
 }
 
 static void task_free(struct per_task *task)
@@ -154,8 +154,10 @@ HANDLE pascal far WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
 					const char FAR *proto,
 					char FAR *buf, int buflen)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
+    /* Not supported */
+    task->wsa_err = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -163,8 +165,10 @@ HANDLE pascal far WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
 					const char FAR *proto,
 					char FAR *buf, int buflen)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
+    /* Not supported */
+    task->wsa_err = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -172,8 +176,10 @@ HANDLE pascal far WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
 					 const char FAR *name,
 					 char FAR *buf, int buflen)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
+    /* Not supported */
+    task->wsa_err = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -181,8 +187,10 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
 					   int number, char FAR *buf,
 					   int buflen)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
+    /* Not supported */
+    task->wsa_err = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -249,15 +257,16 @@ int pascal far WSACleanup(void)
 
 void pascal far WSASetLastError(int iError)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
+    task->wsa_err = iError;
 }
 
 int pascal far WSAGetLastError(void)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
-    return 0;
+    return task->wsa_err;
 }
 
 BOOL pascal far WSAIsBlocking(void)
