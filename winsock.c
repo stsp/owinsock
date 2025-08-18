@@ -29,6 +29,7 @@ struct per_task {
     HTASK task;
     FARPROC BlockingHook;
     int cancel;
+    int blocking;
     int wsa_err;
 };
 #define MAX_TASKS 10
@@ -119,8 +120,10 @@ static int blk_func(void)
 
     assert(task);
     BlockingHook = task->BlockingHook ? task->BlockingHook : DefaultBlockingHook;
+    task->blocking++;
     /* flush messages for good user response */
     while (BlockingHook());
+    task->blocking--;
     /* check for WSACancelBlockingCall() */
     if (task->cancel) {
         task->cancel = 0;
@@ -271,9 +274,9 @@ int pascal far WSAGetLastError(void)
 
 BOOL pascal far WSAIsBlocking(void)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    /* TODO! */
-    return 0;
+    return task->blocking;
 }
 
 int pascal far WSAUnhookBlockingHook(void)
