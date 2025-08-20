@@ -24,6 +24,7 @@
 
 static int idComm;
 _WCRTLINK void _set_blocking_hook(int (far * hook) (void));
+_WCRTLINK extern void freehostent(struct hostent *he);
 
 struct per_task {
     HTASK task;
@@ -201,9 +202,67 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
 					const char FAR *name,
 					char FAR *buf, int buflen)
 {
+    struct hostent *he;
+    int len, i;
+    char FAR **aliases;
+    char FAR **h;
+    struct hostent FAR *dst = (struct hostent FAR *)buf;
+    char FAR *dstart = buf + sizeof(struct hostent);
+    char FAR *data = dstart;
+    const HANDLE id = 1;
+
     _ENT();
-    /* TODO! */
-    return 0;
+    /* TODO: async */
+    assert(name && buflen >= MAXGETHOSTSTRUCT);
+    he = gethostbyname(name);
+    if (!he)
+        return 0;
+    memcpy(dst, he, sizeof(struct hostent));
+    buflen -= sizeof(struct hostent);
+    len = strlen(he->h_name) + 1;
+    assert(len <= buflen);
+    memcpy(data, he->h_name, len);
+    dst->h_name = data;
+    data += len;
+    buflen -= len;
+#define MAXALIASES      8
+    aliases = (char FAR **)data;
+    dst->h_aliases = aliases;
+    len = sizeof(char FAR *) * (MAXALIASES + 1);
+    assert(len <= buflen);
+    memset(data, 0, len);
+    data += len;
+    buflen -= len;
+    for (h = he->h_aliases; *h && (h < he->h_aliases + MAXALIASES); h++, aliases++) {
+        len = strlen(*h) + 1;
+        assert(len <= buflen);
+        memcpy(data, *h, len);
+        *aliases = data;
+        data += len;
+        buflen -= len;
+    }
+    *aliases = NULL;
+#define MAXADDRS        8
+    aliases = (char FAR **)data;
+    dst->h_addr_list = aliases;
+    len = sizeof(char FAR *) * (MAXADDRS + 1);
+    assert(len <= buflen);
+    memset(data, 0, len);
+    data += len;
+    buflen -= len;
+    for (h = he->h_addr_list; *h && (h < he->h_addr_list + MAXADDRS); h++, aliases++) {
+        len = strlen(*h) + 1;
+        assert(len <= buflen);
+        memcpy(data, *h, len);
+        *aliases = data;
+        data += len;
+        buflen -= len;
+    }
+    *aliases = NULL;
+
+    freehostent(he);
+    PostMessage(hWnd, wMsg, id, 0);
+    return id;
 }
 
 HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
