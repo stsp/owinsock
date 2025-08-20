@@ -326,9 +326,12 @@ void pascal far WSASetLastError(int iError)
 
 int pascal far WSAGetLastError(void)
 {
+    int ret;
     struct per_task *task = task_find(GetCurrentTask());
     _ENT();
-    return task->wsa_err;
+    ret = task->wsa_err;
+    task->wsa_err = 0;
+    return ret;
 }
 
 BOOL pascal far WSAIsBlocking(void)
