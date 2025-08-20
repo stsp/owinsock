@@ -24,6 +24,7 @@
 
 static int idComm;
 _WCRTLINK void _set_blocking_hook(int (far * hook) (void));
+_WCRTLINK void _set_debug_hook(void (far *hook)(const char *));
 _WCRTLINK extern void freehostent(struct hostent *he);
 
 struct per_task {
@@ -139,6 +140,7 @@ BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
     _ENT();
     idComm = OpenComm("COM4", 16384, 16384);
     _set_blocking_hook(blk_func);
+    _set_debug_hook(debug_out);
     return 1;
 }
 
@@ -148,6 +150,7 @@ int FAR PASCAL WEP(int nParameter)
 {
     _ENT();
     _set_blocking_hook(NULL);
+    _set_debug_hook(NULL);
     if (idComm > 0)
 	CloseComm(idComm);
     return (1);
