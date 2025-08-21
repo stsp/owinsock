@@ -162,7 +162,9 @@ HANDLE pascal far WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
 					char FAR *buf, int buflen)
 {
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
+    assert(task);
     /* Not supported */
     task->wsa_err = WSAEOPNOTSUPP;
     return 0;
@@ -173,7 +175,9 @@ HANDLE pascal far WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
 					char FAR *buf, int buflen)
 {
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
+    assert(task);
     /* Not supported */
     task->wsa_err = WSAEOPNOTSUPP;
     return 0;
@@ -184,7 +188,9 @@ HANDLE pascal far WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
 					 char FAR *buf, int buflen)
 {
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
+    assert(task);
     /* Not supported */
     task->wsa_err = WSAEOPNOTSUPP;
     return 0;
@@ -195,7 +201,9 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
 					   int buflen)
 {
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
+    assert(task);
     /* Not supported */
     task->wsa_err = WSAEOPNOTSUPP;
     return 0;
@@ -314,6 +322,7 @@ int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
 int pascal far WSACleanup(void)
 {
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
     assert(task);
     task_free(task);
@@ -323,7 +332,9 @@ int pascal far WSACleanup(void)
 void pascal far WSASetLastError(int iError)
 {
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
+    assert(task);
     task->wsa_err = iError;
 }
 
@@ -331,7 +342,9 @@ int pascal far WSAGetLastError(void)
 {
     int ret;
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
+    assert(task);
     ret = task->wsa_err;
     task->wsa_err = 0;
     return ret;
@@ -340,7 +353,9 @@ int pascal far WSAGetLastError(void)
 BOOL pascal far WSAIsBlocking(void)
 {
     struct per_task *task = task_find(GetCurrentTask());
+
     _ENT();
+    assert(task);
     return task->blocking;
 }
 
