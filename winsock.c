@@ -261,8 +261,8 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     memset(data, 0, len);
     data += len;
     buflen -= len;
+    len = he->h_length;
     for (h = he->h_addr_list; *h && (h < he->h_addr_list + MAXADDRS); h++, aliases++) {
-        len = strlen(*h) + 1;
         assert(len <= buflen);
         memcpy(data, *h, len);
         *aliases = data;
