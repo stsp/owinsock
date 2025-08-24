@@ -302,13 +302,15 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
 
 int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
 {
+    const char desc[] =
+		"Open Winsock - winsock-1.1 for OpenWatcom. "
+		"Copyright 2025 @stsp. "
+		"Open Winsock is free software, GPLv3+.";
     _ENT();
     lpWSAData->wVersion = 0x0101;
     lpWSAData->wHighVersion = 0x0101;
-    strcpy(lpWSAData->szDescription,
-		"OWinSock - dosemu2 sockets. "
-		"Copyright 2025 @stsp. "
-		"OWinSock is free software, GPLv3+. ");
+    assert(sizeof(desc) <= 256);
+    strcpy(lpWSAData->szDescription, desc);
     strcpy(lpWSAData->szSystemStatus, "Ready.");
     lpWSAData->iMaxSockets = 256;
     lpWSAData->iMaxUdpDg = 512;
