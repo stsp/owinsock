@@ -1,5 +1,5 @@
 /*
- *  owinsock - winsock-1.1/win16 (winsock.dll) for OpenWatcom
+ *  Open Winsock - winsock-1.1/win16 (winsock.dll) for OpenWatcom
  *  Copyright (C) 2025  @stsp
  *
  *  This program is free software: you can redistribute it and/or modify
