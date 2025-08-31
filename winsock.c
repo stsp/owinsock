@@ -100,31 +100,16 @@ int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
     return FALSE;
 }
 
-static BOOL far pascal DefaultBlockingHook(void)
-{
-    MSG msg;
-    BOOL ret;
-    /* get the next message if any */
-    ret = (BOOL) PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
-    /* if we got one, process it */
-    if (ret) {
-	TranslateMessage(&msg);
-	DispatchMessage(&msg);
-    }
-    /* TRUE if we got a message */
-    return ret;
-}
-
 static int blk_func(void)
 {
-    FARPROC BlockingHook;
     struct per_task *task = task_find(GetCurrentTask());
 
     assert(task);
-    BlockingHook = task->BlockingHook ? task->BlockingHook : DefaultBlockingHook;
     task->blocking++;
-    /* flush messages for good user response */
-    while (BlockingHook());
+    if (task->BlockingHook)
+        while (task->BlockingHook());
+    else
+        Yield();
     task->blocking--;
     /* check for WSACancelBlockingCall() */
     if (task->cancel) {
