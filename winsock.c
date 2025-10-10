@@ -206,6 +206,7 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     char FAR *dstart = buf + sizeof(struct hostent);
     char FAR *data = dstart;
     const HANDLE id = 1;
+    int done_len = 0;
 
     _ENT();
     /* TODO: async */
@@ -213,14 +214,19 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     he = gethostbyname(name);
     if (!he)
         return 0;
-    memcpy(dst, he, sizeof(struct hostent));
-    buflen -= sizeof(struct hostent);
+    len = sizeof(struct hostent);
+    memcpy(dst, he, len);
+    buflen -= len;
+    done_len += len;
+
     len = strlen(he->h_name) + 1;
     assert(len <= buflen);
     memcpy(data, he->h_name, len);
     dst->h_name = data;
     data += len;
     buflen -= len;
+    done_len += len;
+
 #define MAXALIASES      8
     aliases = (char FAR **)data;
     dst->h_aliases = aliases;
@@ -229,6 +235,8 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     memset(data, 0, len);
     data += len;
     buflen -= len;
+    done_len += len;
+
     for (h = he->h_aliases; *h && (h < he->h_aliases + MAXALIASES); h++, aliases++) {
         len = strlen(*h) + 1;
         assert(len <= buflen);
@@ -236,8 +244,10 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
         *aliases = data;
         data += len;
         buflen -= len;
+        done_len += len;
     }
     *aliases = NULL;
+
 #define MAXADDRS        8
     aliases = (char FAR **)data;
     dst->h_addr_list = aliases;
@@ -246,6 +256,8 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     memset(data, 0, len);
     data += len;
     buflen -= len;
+    done_len += len;
+
     len = he->h_length;
     for (h = he->h_addr_list; *h && (h < he->h_addr_list + MAXADDRS); h++, aliases++) {
         assert(len <= buflen);
@@ -253,11 +265,12 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
         *aliases = data;
         data += len;
         buflen -= len;
+        done_len += len;
     }
     *aliases = NULL;
 
     freehostent(he);
-    PostMessage(hWnd, wMsg, id, 0);
+    PostMessage(hWnd, wMsg, id, WSAMAKEASYNCREPLY(done_len, 0));
     return id;
 }
 
