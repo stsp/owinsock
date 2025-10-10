@@ -194,28 +194,36 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
     return 0;
 }
 
-HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
-					const char FAR *name,
-					char FAR *buf, int buflen)
+struct GBHN {
+    HWND hWnd;
+    u_int wMsg;
+    const char FAR *name;
+    char FAR *buf;
+    int buflen;
+    struct per_task *task;
+    HANDLE id;
+};
+
+static struct GBHN ghbn;
+static HANDLE wsa_id = 1;
+
+static void AsyncGetHostByName(void)
 {
     struct hostent *he;
     int len, i;
     char FAR **aliases;
     char FAR **h;
-    struct hostent FAR *dst = (struct hostent FAR *)buf;
-    char FAR *dstart = buf + sizeof(struct hostent);
+    struct hostent FAR *dst = (struct hostent FAR *)ghbn.buf;
+    char FAR *dstart = ghbn.buf + sizeof(struct hostent);
     char FAR *data = dstart;
-    const HANDLE id = 1;
+    int buflen = ghbn.buflen;
     int done_len = 0;
-    struct per_task *task = task_find(GetCurrentTask());
+    struct per_task *task = ghbn.task;
 
-    _ENT();
-    /* TODO: async */
-    assert(name && buflen >= MAXGETHOSTSTRUCT);
-    he = gethostbyname(name);
+    he = gethostbyname(ghbn.name);
     if (!he) {
         task->wsa_err = WSAHOST_NOT_FOUND;
-        return 0;
+        return;
     }
     len = sizeof(struct hostent);
     memcpy(dst, he, len);
@@ -273,8 +281,31 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     *aliases = NULL;
 
     freehostent(he);
-    PostMessage(hWnd, wMsg, id, WSAMAKEASYNCREPLY(done_len, 0));
-    return id;
+    PostMessage(ghbn.hWnd, ghbn.wMsg, ghbn.id, WSAMAKEASYNCREPLY(done_len, 0));
+}
+
+HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
+					const char FAR *name,
+					char FAR *buf, int buflen)
+{
+    struct per_task *task = task_find(GetCurrentTask());
+
+    _ENT();
+    if (!name || buflen < MAXGETHOSTSTRUCT) {
+        task->wsa_err = WSAEINVAL;
+        return 0;
+    }
+    ghbn.task = task;
+    ghbn.id = wsa_id;
+    ghbn.hWnd = hWnd;
+    ghbn.wMsg = wMsg;
+    ghbn.name = name;
+    ghbn.buf = buf;
+    ghbn.buflen = buflen;
+
+    /* TODO: async */
+    AsyncGetHostByName();
+    return wsa_id++;
 }
 
 HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
