@@ -207,13 +207,16 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     char FAR *data = dstart;
     const HANDLE id = 1;
     int done_len = 0;
+    struct per_task *task = task_find(GetCurrentTask());
 
     _ENT();
     /* TODO: async */
     assert(name && buflen >= MAXGETHOSTSTRUCT);
     he = gethostbyname(name);
-    if (!he)
+    if (!he) {
+        task->wsa_err = WSAHOST_NOT_FOUND;
         return 0;
+    }
     len = sizeof(struct hostent);
     memcpy(dst, he, len);
     buflen -= len;
