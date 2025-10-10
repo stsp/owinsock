@@ -1,12 +1,22 @@
-OWDIR = $(WATCOM)
+ifeq ($(WATCOM),)
+$(error WATCOM variable not set)
+endif
+ifeq ($(INCLUDE),)
+export INCLUDE := $(WATCOM)/h
+endif
 NAME = winsock
 DLLNAME = WINSOCK.DLL
 OUTDIR = RELEASE
 WTLIB = libd2sock/W16/libd2sock.lib
 
 CC = wcc
+$(shell which $(CC) 2>/dev/null)
+ifneq ($(.SHELLSTATUS),0)
+$(warning appending $(WATCOM)/binl64 to PATH)
+export PATH := $(PATH):$(WATCOM)/binl64
+endif
 CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu -I$(WATCOM)/h/win
-LINK=wlink
+LINK = wlink
 
 all: $(OUTDIR) $(OUTDIR)/$(DLLNAME)
 
