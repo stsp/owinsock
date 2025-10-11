@@ -155,7 +155,7 @@ static int blk_func(void *arg)
 }
 
 /* being called from another process, we need to swap DS */
-static LRESULT CALLBACK __loadds WSAWindowProc(HWND hWnd, UINT wMsg,
+LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
         WPARAM wParam, LPARAM lParam)
 {
     _ENT();
