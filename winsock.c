@@ -23,9 +23,10 @@
 #include <assert.h>
 
 static int idComm;
-_WCRTLINK void _set_blocking_hook(int (far * hook) (void));
+_WCRTLINK void _set_blocking_hook(int (far * hook) (void *));
 _WCRTLINK void _set_debug_hook(void (far *hook)(const char *));
 _WCRTLINK extern void freehostent(struct hostent *he);
+_WCRTLINK extern struct hostent *gethostbyname_ex( const char *__name, void *arg );
 
 struct per_task {
     HTASK task;
@@ -41,10 +42,24 @@ static int num_tasks;
 static HINSTANCE hinst;
 static const char *WSAClassName = "OpenWinsock WSA Window";
 
-struct per_wnd {
-    void (*handler)(void *arg);
-    void *arg;
+struct GHBN {
+    HWND hWnd;
+    u_int wMsg;
+    const char FAR *name;
+    char FAR *buf;
+    int buflen;
+    HANDLE id;
 };
+
+struct per_async {
+    void (*handler)(struct per_async *arg);
+    struct GHBN ghbn;
+    int cancel;
+};
+#define MAX_ASYNC 256
+static struct per_async asyncs[MAX_ASYNC];
+static HANDLE wsa_id;
+#define MAX_ASYNC_M1 (MAX_ASYNC - 1)
 
 static void debug_out(const char *msg)
 {
@@ -108,10 +123,21 @@ int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
     return FALSE;
 }
 
-static int blk_func(void)
+static int blk_async(struct per_async *async)
 {
-    struct per_task *task = task_find(GetCurrentTask());
+    Yield();
+    if (async->cancel)
+        return 0;
+    return 1;
+}
 
+static int blk_func(void *arg)
+{
+    struct per_task *task;
+
+    if (arg)
+        return blk_async(arg);
+    task = task_find(GetCurrentTask());
     assert(task);
     task->blocking++;
     if (task->BlockingHook)
@@ -134,9 +160,11 @@ static LRESULT CALLBACK __loadds WSAWindowProc(HWND hWnd, UINT wMsg,
     _ENT();
     if (wMsg == WM_CREATE) {
         LPCREATESTRUCT pCreateStruct = (LPCREATESTRUCT)lParam;
-        struct per_wnd *pw = (struct per_wnd *)pCreateStruct->lpCreateParams;
-        assert(pw);
-        pw->handler(pw->arg);
+        struct per_async *async = (struct per_async *)pCreateStruct->lpCreateParams;
+
+        assert(async && async->handler);
+        async->handler(async);
+        async->handler = NULL;
         DestroyWindow(hWnd);
         return 0;
     }
@@ -158,7 +186,6 @@ BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 
     wc.style = 0;
     wc.lpfnWndProc = WSAWindowProc;
-    wc.cbWndExtra = sizeof(long);
     wc.hInstance = hInstance;
     wc.lpszClassName = WSAClassName;
     RegisterClass(&wc);
@@ -230,23 +257,14 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
     return 0;
 }
 
-struct GBHN {
-    HWND hWnd;
-    u_int wMsg;
-    const char FAR *name;
-    char FAR *buf;
-    int buflen;
-    HANDLE id;
-};
-
 #define GHBN_RET(g, l) \
         PostMessage(g->hWnd, g->wMsg, g->id, WSAMAKEASYNCREPLY(l, 0));
 #define GHBN_ERR(g, e) \
         PostMessage(g->hWnd, g->wMsg, g->id, WSAMAKEASYNCREPLY(0, e));
 
-static void AsyncGetHostByName(void *arg)
+static void AsyncGetHostByName(struct per_async *arg)
 {
-    struct GBHN *ghbn = arg;
+    struct GHBN *ghbn = &arg->ghbn;
     struct hostent *he;
     int len, i;
     char FAR **aliases;
@@ -257,7 +275,7 @@ static void AsyncGetHostByName(void *arg)
     int buflen = ghbn->buflen;
     int done_len = 0;
 
-    he = gethostbyname(ghbn->name);
+    he = gethostbyname_ex(ghbn->name, arg);
     if (!he) {
         GHBN_ERR(ghbn, WSAHOST_NOT_FOUND);
         return;
@@ -321,15 +339,13 @@ static void AsyncGetHostByName(void *arg)
     GHBN_RET(ghbn, done_len);
 }
 
-static struct GBHN ghbn;
-static HANDLE wsa_id = 1;
-static struct per_wnd ghbn_wnd = { AsyncGetHostByName, &ghbn };
-
 HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
 					const char FAR *name,
 					char FAR *buf, int buflen)
 {
     struct per_task *task = task_find(GetCurrentTask());
+    HANDLE id = wsa_id;
+    struct per_async *async;
     HWND hwnd;
 
     _ENT();
@@ -337,12 +353,17 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
         task->wsa_err = WSAEINVAL;
         return 0;
     }
-    ghbn.id = wsa_id;
-    ghbn.hWnd = hWnd;
-    ghbn.wMsg = wMsg;
-    ghbn.name = name;
-    ghbn.buf = buf;
-    ghbn.buflen = buflen;
+
+    async = &asyncs[id];
+    assert(!async->handler);
+    async->handler = AsyncGetHostByName;
+    async->cancel = 0;
+    async->ghbn.id = id + 1;
+    async->ghbn.hWnd = hWnd;
+    async->ghbn.wMsg = wMsg;
+    async->ghbn.name = name;
+    async->ghbn.buf = buf;
+    async->ghbn.buflen = buflen;
 
     hwnd = CreateWindow(WSAClassName, __FUNCTION__,
                         WS_OVERLAPPEDWINDOW,
@@ -350,8 +371,16 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
                         CW_USEDEFAULT, CW_USEDEFAULT,
                         NULL, NULL,
                         hinst,
-                        &ghbn_wnd);
-    return wsa_id++;
+                        async);
+    if (!hwnd) {
+        async->handler = NULL;
+        task->wsa_err = WSANO_RECOVERY;
+        return 0;
+    }
+
+    wsa_id++;
+    wsa_id &= MAX_ASYNC_M1;
+    return id + 1;
 }
 
 HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
@@ -366,8 +395,12 @@ HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
 
 int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 {
+    struct per_async *async;
+
     _ENT();
-    /* TODO! */
+    assert(hAsyncTaskHandle > 0 && hAsyncTaskHandle <= MAX_ASYNC);
+    async = &asyncs[hAsyncTaskHandle - 1];
+    async->cancel++;
     return 0;
 }
 

@@ -29,8 +29,8 @@ $(OUTDIR)/$(DLLNAME): $(OUTDIR)/$(NAME).obj a.lnk $(NAME).lbc $(WTLIB)
 
 a.lnk:
 	echo file $(OUTDIR)/$(NAME).obj >$@
-	echo option oneautodata >>$@
-	echo system windows dll initglobal memory >>$@
+	echo option manyautodata >>$@
+	echo system windows dll initinstance memory >>$@
 	echo libfile libentry.obj >>$@
 	echo export=$(NAME).lbc >>$@
 	echo lib $(WTLIB) >>$@
