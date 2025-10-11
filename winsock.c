@@ -128,9 +128,8 @@ static int blk_func(void)
 }
 
 /* being called from another process, we need to swap DS */
-#pragma aux _WSAWindowProc loadds
-static LRESULT _WSAWindowProc(HWND hWnd, UINT wMsg, WPARAM wParam,
-        LPARAM lParam)
+static LRESULT CALLBACK __loadds WSAWindowProc(HWND hWnd, UINT wMsg,
+        WPARAM wParam, LPARAM lParam)
 {
     _ENT();
     if (wMsg == WM_CREATE) {
@@ -142,12 +141,6 @@ static LRESULT _WSAWindowProc(HWND hWnd, UINT wMsg, WPARAM wParam,
         return 0;
     }
     return DefWindowProc(hWnd, wMsg, wParam, lParam);
-}
-
-static LRESULT CALLBACK WSAWindowProc(HWND hWnd, UINT wMsg, WPARAM wParam,
-        LPARAM lParam)
-{
-    return _WSAWindowProc(hWnd, wMsg, wParam, lParam);
 }
 
 BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
