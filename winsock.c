@@ -68,6 +68,7 @@ static void debug_out(const char *msg)
 }
 
 #define _ENT() debug_out("enter: " __FUNCTION__ "\r\n")
+#define _LVE() debug_out("leave: " __FUNCTION__ "\r\n")
 #define DEBUG_STR(...) { \
 	char _buf[128]; \
 	snprintf(_buf, sizeof(_buf), __VA_ARGS__); \
@@ -158,16 +159,17 @@ static LRESULT CALLBACK __loadds WSAWindowProc(HWND hWnd, UINT wMsg,
         WPARAM wParam, LPARAM lParam)
 {
     _ENT();
-    if (wMsg == WM_CREATE) {
-        LPCREATESTRUCT pCreateStruct = (LPCREATESTRUCT)lParam;
-        struct per_async *async = (struct per_async *)pCreateStruct->lpCreateParams;
+    if (wMsg == WM_USER) {
+        struct per_async *async = (struct per_async *)lParam;
 
+        debug_out("\tWM_USER\r\n");
         assert(async && async->handler);
         async->handler(async);
         async->handler = NULL;
         DestroyWindow(hWnd);
         return 0;
     }
+    DEBUG_STR("\twmsg 0x%x\r\n", wMsg);
     return DefWindowProc(hWnd, wMsg, wParam, lParam);
 }
 
@@ -346,7 +348,7 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     struct per_task *task = task_find(GetCurrentTask());
     HANDLE id = wsa_id;
     struct per_async *async;
-    HWND hwnd;
+    HWND wnd;
 
     _ENT();
     if (!name || buflen < MAXGETHOSTSTRUCT) {
@@ -365,21 +367,23 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     async->ghbn.buf = buf;
     async->ghbn.buflen = buflen;
 
-    hwnd = CreateWindow(WSAClassName, __FUNCTION__,
+    wnd = CreateWindow(WSAClassName, __FUNCTION__,
                         WS_OVERLAPPEDWINDOW,
                         CW_USEDEFAULT, CW_USEDEFAULT,
                         CW_USEDEFAULT, CW_USEDEFAULT,
                         NULL, NULL,
                         hinst,
-                        async);
-    if (!hwnd) {
+                        NULL);
+    if (!wnd) {
         async->handler = NULL;
         task->wsa_err = WSANO_RECOVERY;
         return 0;
     }
+    PostMessage(wnd, WM_USER, 0, async);
 
     wsa_id++;
     wsa_id &= MAX_ASYNC_M1;
+    _LVE();
     return id + 1;
 }
 
