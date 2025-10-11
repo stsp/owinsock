@@ -38,6 +38,14 @@ struct per_task {
 struct per_task tasks[MAX_TASKS];
 static int num_tasks;
 
+static HINSTANCE hinst;
+static const char *WSAClassName = "OpenWinsock WSA Window";
+
+struct per_wnd {
+    void (*handler)(void *arg);
+    void *arg;
+};
+
 static void debug_out(const char *msg)
 {
     if (idComm > 0)
@@ -119,15 +127,48 @@ static int blk_func(void)
     return 1;
 }
 
+/* being called from another process, we need to swap DS */
+#pragma aux _WSAWindowProc loadds
+static LRESULT _WSAWindowProc(HWND hWnd, UINT wMsg, WPARAM wParam,
+        LPARAM lParam)
+{
+    _ENT();
+    if (wMsg == WM_CREATE) {
+        LPCREATESTRUCT pCreateStruct = (LPCREATESTRUCT)lParam;
+        struct per_wnd *pw = (struct per_wnd *)pCreateStruct->lpCreateParams;
+        assert(pw);
+        pw->handler(pw->arg);
+        DestroyWindow(hWnd);
+        return 0;
+    }
+    return DefWindowProc(hWnd, wMsg, wParam, lParam);
+}
+
+static LRESULT CALLBACK WSAWindowProc(HWND hWnd, UINT wMsg, WPARAM wParam,
+        LPARAM lParam)
+{
+    return _WSAWindowProc(hWnd, wMsg, wParam, lParam);
+}
+
 BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 			WORD wHeapSize, LPSTR lpszCmdLine)
 {
+    WNDCLASS wc = {0};
+
     idComm = OpenComm("COM4", 16384, 16384);
     _ENT();
     DEBUG_STR("hInstance=%x dataseg=%x heapsize=%x cmdline=%s\r\n",
             hInstance, wDataSegment, wHeapSize, lpszCmdLine);
     _set_blocking_hook(blk_func);
     _set_debug_hook(debug_out);
+    hinst = hInstance;
+
+    wc.style = 0;
+    wc.lpfnWndProc = WSAWindowProc;
+    wc.cbWndExtra = sizeof(long);
+    wc.hInstance = hInstance;
+    wc.lpszClassName = WSAClassName;
+    RegisterClass(&wc);
     return 1;
 }
 
@@ -206,23 +247,21 @@ struct GBHN {
     HANDLE id;
 };
 
-static struct GBHN ghbn;
-static HANDLE wsa_id = 1;
-
-static void AsyncGetHostByName(void)
+static void AsyncGetHostByName(void *arg)
 {
+    struct GBHN *ghbn = arg;
     struct hostent *he;
     int len, i;
     char FAR **aliases;
     char FAR **h;
-    struct hostent FAR *dst = (struct hostent FAR *)ghbn.buf;
-    char FAR *dstart = ghbn.buf + sizeof(struct hostent);
+    struct hostent FAR *dst = (struct hostent FAR *)ghbn->buf;
+    char FAR *dstart = ghbn->buf + sizeof(struct hostent);
     char FAR *data = dstart;
-    int buflen = ghbn.buflen;
+    int buflen = ghbn->buflen;
     int done_len = 0;
-    struct per_task *task = ghbn.task;
+    struct per_task *task = ghbn->task;
 
-    he = gethostbyname(ghbn.name);
+    he = gethostbyname(ghbn->name);
     if (!he) {
         task->wsa_err = WSAHOST_NOT_FOUND;
         return;
@@ -283,14 +322,19 @@ static void AsyncGetHostByName(void)
     *aliases = NULL;
 
     freehostent(he);
-    PostMessage(ghbn.hWnd, ghbn.wMsg, ghbn.id, WSAMAKEASYNCREPLY(done_len, 0));
+    PostMessage(ghbn->hWnd, ghbn->wMsg, ghbn->id, WSAMAKEASYNCREPLY(done_len, 0));
 }
+
+static struct GBHN ghbn;
+static HANDLE wsa_id = 1;
+static struct per_wnd ghbn_wnd = { AsyncGetHostByName, &ghbn };
 
 HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
 					const char FAR *name,
 					char FAR *buf, int buflen)
 {
     struct per_task *task = task_find(GetCurrentTask());
+    HWND hwnd;
 
     _ENT();
     if (!name || buflen < MAXGETHOSTSTRUCT) {
@@ -305,8 +349,13 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     ghbn.buf = buf;
     ghbn.buflen = buflen;
 
-    /* TODO: async */
-    AsyncGetHostByName();
+    hwnd = CreateWindow(WSAClassName, __FUNCTION__,
+                        WS_OVERLAPPEDWINDOW,
+                        CW_USEDEFAULT, CW_USEDEFAULT,
+                        CW_USEDEFAULT, CW_USEDEFAULT,
+                        NULL, NULL,
+                        hinst,
+                        &ghbn_wnd);
     return wsa_id++;
 }
 
