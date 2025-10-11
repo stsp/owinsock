@@ -122,8 +122,10 @@ static int blk_func(void)
 BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 			WORD wHeapSize, LPSTR lpszCmdLine)
 {
-    _ENT();
     idComm = OpenComm("COM4", 16384, 16384);
+    _ENT();
+    DEBUG_STR("hInstance=%x dataseg=%x heapsize=%x cmdline=%s\r\n",
+            hInstance, wDataSegment, wHeapSize, lpszCmdLine);
     _set_blocking_hook(blk_func);
     _set_debug_hook(debug_out);
     return 1;
