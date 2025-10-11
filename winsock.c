@@ -154,7 +154,8 @@ static int blk_func(void *arg)
     return 1;
 }
 
-/* being called from another process, we need to swap DS */
+/* callback needs to be exported so that Windows can patch its prolog
+ * with proper dataseg - same that it passes to LibMain() */
 LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
         WPARAM wParam, LPARAM lParam)
 {
