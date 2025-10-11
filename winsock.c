@@ -243,9 +243,13 @@ struct GBHN {
     const char FAR *name;
     char FAR *buf;
     int buflen;
-    struct per_task *task;
     HANDLE id;
 };
+
+#define GHBN_RET(g, l) \
+        PostMessage(g->hWnd, g->wMsg, g->id, WSAMAKEASYNCREPLY(l, 0));
+#define GHBN_ERR(g, e) \
+        PostMessage(g->hWnd, g->wMsg, g->id, WSAMAKEASYNCREPLY(0, e));
 
 static void AsyncGetHostByName(void *arg)
 {
@@ -259,11 +263,10 @@ static void AsyncGetHostByName(void *arg)
     char FAR *data = dstart;
     int buflen = ghbn->buflen;
     int done_len = 0;
-    struct per_task *task = ghbn->task;
 
     he = gethostbyname(ghbn->name);
     if (!he) {
-        task->wsa_err = WSAHOST_NOT_FOUND;
+        GHBN_ERR(ghbn, WSAHOST_NOT_FOUND);
         return;
     }
     len = sizeof(struct hostent);
@@ -322,7 +325,7 @@ static void AsyncGetHostByName(void *arg)
     *aliases = NULL;
 
     freehostent(he);
-    PostMessage(ghbn->hWnd, ghbn->wMsg, ghbn->id, WSAMAKEASYNCREPLY(done_len, 0));
+    GHBN_RET(ghbn, done_len);
 }
 
 static struct GBHN ghbn;
@@ -341,7 +344,6 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
         task->wsa_err = WSAEINVAL;
         return 0;
     }
-    ghbn.task = task;
     ghbn.id = wsa_id;
     ghbn.hWnd = hWnd;
     ghbn.wMsg = wMsg;
