@@ -161,13 +161,18 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
 {
     _ENT();
     if (wMsg == WM_USER) {
-        struct per_async *async = (struct per_async *)lParam;
+        switch (wParam) {
+            case 0: {
+                struct per_async *async = (struct per_async *)lParam;
 
-        debug_out("\tWM_USER\r\n");
-        assert(async && async->handler);
-        async->handler(async);
-        async->handler = NULL;
-        DestroyWindow(hWnd);
+                debug_out("\tWM_USER\r\n");
+                assert(async && async->handler);
+                async->handler(async);
+                async->handler = NULL;
+                DestroyWindow(hWnd);
+                break;
+            }
+        }
         return 0;
     }
     DEBUG_STR("\twmsg 0x%x\r\n", wMsg);
