@@ -10,7 +10,7 @@ OUTDIR = RELEASE
 WTLIB = libd2sock/W16/libd2sock.lib
 
 CC = wcc
-$(shell which $(CC) 2>/dev/null)
+DUMMY = $(shell which $(CC) 2>/dev/null)
 ifneq ($(.SHELLSTATUS),0)
 $(warning appending $(WATCOM)/binl64 to PATH)
 export PATH := $(PATH):$(WATCOM)/binl64
