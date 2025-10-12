@@ -514,6 +514,7 @@ int pascal far WSACancelBlockingCall(void)
 
     _ENT();
     assert(task);
-    task->cancel++;
+    if (task->blocking)
+        task->cancel++;
     return 0;
 }
