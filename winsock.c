@@ -138,8 +138,11 @@ static int blk_func(void *arg)
 
     if (arg)
         return blk_async(arg);
+
     task = task_find(GetCurrentTask());
     assert(task);
+    if (task->blocking)
+        return 0;  // avoid recursive blocking
     task->blocking++;
     if (task->BlockingHook)
         while (task->BlockingHook());
