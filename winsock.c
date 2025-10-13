@@ -406,6 +406,9 @@ HANDLE pascal far WSAAsyncGetHostByAddr(HWND hWnd, u_int wMsg,
     return 0;
 }
 
+/* Note: WSAAsyncGetXByY() (above) return 0 as failure.
+ *       Other WSA funcs (below) return 0 as success. */
+
 int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 {
     struct per_async *async;
@@ -419,9 +422,18 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 
 int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
 {
+    int fread = !!(lEvent & FD_READ);
+    int fwrite = !!(lEvent & FD_WRITE);
+    int foob = !!(lEvent & FD_OOB);
+    int faccept = !!(lEvent & FD_ACCEPT);
+    int fconnect = !!(lEvent & FD_CONNECT);
+    int fclose = !!(lEvent & FD_CLOSE);
+
     _ENT();
+    DEBUG_STR("\t0x%lx (fread:%i fwrite:%i foob:%i faccept:%i fconnect:%i fclose:%i)\n",
+            lEvent, fread, fwrite, foob, faccept, fconnect, fclose);
     /* TODO! */
-    return 0;
+    return SOCKET_ERROR;
 }
 
 int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
