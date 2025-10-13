@@ -430,8 +430,8 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
     int fclose = !!(lEvent & FD_CLOSE);
 
     _ENT();
-    DEBUG_STR("\t0x%lx (fread:%i fwrite:%i foob:%i faccept:%i fconnect:%i fclose:%i)\n",
-            lEvent, fread, fwrite, foob, faccept, fconnect, fclose);
+    DEBUG_STR("\tfd:%i event:0x%lx (fread:%i fwrite:%i foob:%i faccept:%i fconnect:%i fclose:%i)\n",
+            s, lEvent, fread, fwrite, foob, faccept, fconnect, fclose);
     /* TODO! */
     return SOCKET_ERROR;
 }
