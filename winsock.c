@@ -388,7 +388,7 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
         task->wsa_err = WSANO_RECOVERY;
         return 0;
     }
-    PostMessage(wnd, WM_USER, 0, async);
+    PostMessage(wnd, WM_USER, 0, (long)async);
 
     wsa_id++;
     wsa_id &= MAX_ASYNC_M1;
