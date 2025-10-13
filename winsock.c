@@ -135,6 +135,33 @@ static int blk_async(struct per_async *async)
     return 1;
 }
 
+/*
+ * We can't use Yield() in a blocking hook, as Yield() doesn't sleep
+ * when there are no messages to other apps, so can be called in a
+ * busy loop. But what's worse - it never calls into the handler
+ * of our own app, because its handler is not returned, and windows
+ * scheduler avoids recursive calls.
+ * We need an explicit dispatch loop here.
+ * DispatchMessage() calls synchronously into any handler for which
+ * the message is being delivered, and that includes recursively
+ * calling our own app.
+ *
+ * I believe however that in an async call above, Yield() suits.
+ *
+ */
+static BOOL DefaultBlockingHook(void)
+{
+    MSG msg;
+    BOOL ret;
+
+    ret = PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+    if (ret) {
+       TranslateMessage(&msg);
+       DispatchMessage(&msg);
+    }
+    return ret;
+}
+
 static int blk_func(void *arg)
 {
     struct per_task *task;
@@ -152,7 +179,7 @@ static int blk_func(void *arg)
     if (task->BlockingHook)
         while (task->BlockingHook());
     else
-        Yield();
+        DefaultBlockingHook();
     task->blocking--;
     /* check for WSACancelBlockingCall() */
     if (task->cancel) {
