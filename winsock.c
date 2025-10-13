@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <assert.h>
 
 static int idComm;
@@ -74,6 +75,8 @@ static void debug_out(const char *msg)
 	snprintf(_buf, sizeof(_buf), __VA_ARGS__); \
 	debug_out(_buf); \
 }
+
+#define _WSAE(x) errno = 0, (x)
 
 static void task_alloc(HTASK task)
 {
@@ -141,8 +144,10 @@ static int blk_func(void *arg)
 
     task = task_find(GetCurrentTask());
     assert(task);
-    if (task->blocking)
+    if (task->blocking) {
+        _WSAE(task->wsa_err) = WSAEINPROGRESS;
         return 0;  // avoid recursive blocking
+    }
     task->blocking++;
     if (task->BlockingHook)
         while (task->BlockingHook());
@@ -225,7 +230,7 @@ HANDLE pascal far WSAAsyncGetServByName(HWND hWnd, u_int wMsg,
     _ENT();
     assert(task);
     /* Not supported */
-    task->wsa_err = WSAEOPNOTSUPP;
+    _WSAE(task->wsa_err) = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -238,7 +243,7 @@ HANDLE pascal far WSAAsyncGetServByPort(HWND hWnd, u_int wMsg, int port,
     _ENT();
     assert(task);
     /* Not supported */
-    task->wsa_err = WSAEOPNOTSUPP;
+    _WSAE(task->wsa_err) = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -251,7 +256,7 @@ HANDLE pascal far WSAAsyncGetProtoByName(HWND hWnd, u_int wMsg,
     _ENT();
     assert(task);
     /* Not supported */
-    task->wsa_err = WSAEOPNOTSUPP;
+    _WSAE(task->wsa_err) = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -264,7 +269,7 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
     _ENT();
     assert(task);
     /* Not supported */
-    task->wsa_err = WSAEOPNOTSUPP;
+    _WSAE(task->wsa_err) = WSAEOPNOTSUPP;
     return 0;
 }
 
@@ -361,7 +366,7 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
 
     _ENT();
     if (!name || buflen < MAXGETHOSTSTRUCT) {
-        task->wsa_err = WSAEINVAL;
+        _WSAE(task->wsa_err) = WSAEINVAL;
         return 0;
     }
 
@@ -385,7 +390,7 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
                         NULL);
     if (!wnd) {
         async->handler = NULL;
-        task->wsa_err = WSANO_RECOVERY;
+        _WSAE(task->wsa_err) = WSANO_RECOVERY;
         return 0;
     }
     PostMessage(wnd, WM_USER, 0, (long)async);
@@ -473,7 +478,19 @@ void pascal far WSASetLastError(int iError)
 
     _ENT();
     assert(task);
-    task->wsa_err = iError;
+    _WSAE(task->wsa_err) = iError;
+}
+
+static int from_errno(int e)
+{
+    switch (e) {
+        case EAGAIN:
+            return WSAEWOULDBLOCK;
+        case EINVAL:
+            return WSAENOTCONN;  // oops
+    }
+    DEBUG_STR("\tunsupported errno %i\n", e);
+    return 0;
 }
 
 int pascal far WSAGetLastError(void)
@@ -483,8 +500,12 @@ int pascal far WSAGetLastError(void)
 
     _ENT();
     assert(task);
-    ret = task->wsa_err;
-    task->wsa_err = 0;
+    if (errno)
+        ret = from_errno(errno);
+    else
+        ret = task->wsa_err;
+    _WSAE(task->wsa_err) = 0;
+    DEBUG_STR("\treturning %i\n", ret);
     return ret;
 }
 
