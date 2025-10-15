@@ -65,8 +65,8 @@ static void debug_out(const char *msg)
 	WriteComm(idComm, msg, strlen(msg));
 }
 
-#define _ENT() debug_out("enter: " __FUNCTION__ "\r\n")
-#define _LVE() debug_out("leave: " __FUNCTION__ "\r\n")
+#define _ENT() debug_out("enter: " __FUNCTION__ "\n")
+#define _LVE() debug_out("leave: " __FUNCTION__ "\n")
 #define DEBUG_STR(...) { \
 	char _buf[128]; \
 	snprintf(_buf, sizeof(_buf), __VA_ARGS__); \
@@ -186,6 +186,11 @@ static int blk_func(void *arg)
     return 1;
 }
 
+static void close_func(int s, void *arg)
+{
+    _ENT();
+}
+
 /* callback needs to be exported so that Windows can patch its prolog
  * with proper dataseg - same that it passes to LibMain() */
 LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
@@ -197,7 +202,7 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
             case 0: {
                 struct per_async *async = (struct per_async *)lParam;
 
-                debug_out("\tWM_USER\r\n");
+                debug_out("\tWM_USER\n");
                 assert(async && async->handler);
                 async->handler(async);
                 async->handler = NULL;
@@ -207,7 +212,7 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
         }
         return 0;
     }
-    DEBUG_STR("\twmsg 0x%x\r\n", wMsg);
+    DEBUG_STR("\twmsg 0x%x\n", wMsg);
     return DefWindowProc(hWnd, wMsg, wParam, lParam);
 }
 
@@ -218,10 +223,11 @@ BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 
     idComm = OpenComm("COM4", 16384, 16384);
     _ENT();
-    DEBUG_STR("hInstance=%x dataseg=%x heapsize=%x cmdline=%s\r\n",
+    DEBUG_STR("hInstance=%x dataseg=%x heapsize=%x cmdline=%s\n",
             hInstance, wDataSegment, wHeapSize, lpszCmdLine);
     d2s_set_blocking_hook(blk_func);
     d2s_set_debug_hook(debug_out);
+    d2s_set_close_hook(close_func);
     hinst = hInstance;
 
     wc.style = 0;
@@ -449,18 +455,26 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
     return 0;
 }
 
+#define _FREAD(lEvent) (!!((lEvent) & FD_READ))
+#define _FWRITE(lEvent) (!!((lEvent) & FD_WRITE))
+#define _FOOB(lEvent) (!!((lEvent) & FD_OOB))
+#define _FACCEPT(lEvent) (!!((lEvent) & FD_ACCEPT))
+#define _FCONNECT(lEvent) (!!((lEvent) & FD_CONNECT))
+#define _FCLOSE(lEvent) (!!((lEvent) & FD_CLOSE))
+
 int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
 {
-    int fread = !!(lEvent & FD_READ);
-    int fwrite = !!(lEvent & FD_WRITE);
-    int foob = !!(lEvent & FD_OOB);
-    int faccept = !!(lEvent & FD_ACCEPT);
-    int fconnect = !!(lEvent & FD_CONNECT);
-    int fclose = !!(lEvent & FD_CLOSE);
+    int fread = _FREAD(lEvent);
+    int fwrite = _FWRITE(lEvent);
+    int foob = _FOOB(lEvent);
+    int faccept = _FACCEPT(lEvent);
+    int fconnect = _FCONNECT(lEvent);
+    int fclose = _FCLOSE(lEvent);
 
     _ENT();
     DEBUG_STR("\tfd:%i event:0x%lx (fread:%i fwrite:%i foob:%i faccept:%i fconnect:%i fclose:%i)\n",
             s, lEvent, fread, fwrite, foob, faccept, fconnect, fclose);
+    d2s_close_intercept(s, (void *)lEvent);
     /* TODO! */
     return SOCKET_ERROR;
 }
