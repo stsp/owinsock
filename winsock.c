@@ -50,11 +50,14 @@ struct GHBN {
 };
 
 struct per_asel {
+    HWND hWnd;
+    unsigned int wMsg;
     long lEvent;
     int s;
     void (*handler)(struct per_asel *arg);
     int cancel;
     int done;
+    int fclose;
 };
 
 struct per_async {
@@ -200,7 +203,13 @@ static int blk_func(void *arg)
 
 static void close_func(int s, void *arg)
 {
+    struct per_asel *asel = arg;
+
     _ENT();
+    assert(asel);
+    if (asel->fclose)
+        PostMessage(asel->hWnd, asel->wMsg, s,
+                WSAMAKESELECTREPLY(FD_CLOSE, 0));
     CancelAS(s);
 }
 
@@ -487,6 +496,12 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 
 static void AsyncSelect(struct per_asel *arg)
 {
+    int fread = _FREAD(arg->lEvent);
+    int fwrite = _FWRITE(arg->lEvent);
+    int foob = _FOOB(arg->lEvent);
+    int faccept = _FACCEPT(arg->lEvent);
+    int fconnect = _FCONNECT(arg->lEvent);
+
     _ENT();
     /* TODO */
     arg->done++;
@@ -520,11 +535,11 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
     HWND wnd;
 
     _ENT();
-    if (!lEvent)
-        return 0;
     DEBUG_STR("\tfd:%i event:0x%lx (fread:%i fwrite:%i foob:%i faccept:%i fconnect:%i fclose:%i)\n",
             s, lEvent, fread, fwrite, foob, faccept, fconnect, fclose);
     CancelAS(s);
+    if (!lEvent)
+        return 0;
 
     wnd = CreateWindow(WSAClassName, __FUNCTION__,
                         WS_OVERLAPPEDWINDOW,
@@ -540,9 +555,12 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
 
     asel = malloc(sizeof(struct per_asel));
     memset(asel, 0, sizeof(struct per_asel));
+    asel->hWnd = hWnd;
+    asel->wMsg = wMsg;
     asel->lEvent = lEvent;
     asel->s = s;
     asel->handler = AsyncSelect;
+    asel->fclose = fclose;
     d2s_close_intercept(s, asel);
     PostMessage(wnd, WM_USER, I_ASEL, (long)asel);
     return 0;
