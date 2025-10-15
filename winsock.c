@@ -17,6 +17,7 @@
  */
 
 #include <winsock.h>
+#include <d2sock.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,10 +25,6 @@
 #include <assert.h>
 
 static int idComm;
-_WCRTLINK void _set_blocking_hook(int (far * hook) (void *));
-_WCRTLINK void _set_debug_hook(void (far *hook)(const char *));
-_WCRTLINK extern void freehostent(struct hostent *he);
-_WCRTLINK extern struct hostent *gethostbyname_ex( const char *__name, void *arg );
 
 struct per_task {
     HTASK task;
@@ -223,8 +220,8 @@ BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
     _ENT();
     DEBUG_STR("hInstance=%x dataseg=%x heapsize=%x cmdline=%s\r\n",
             hInstance, wDataSegment, wHeapSize, lpszCmdLine);
-    _set_blocking_hook(blk_func);
-    _set_debug_hook(debug_out);
+    d2s_set_blocking_hook(blk_func);
+    d2s_set_debug_hook(debug_out);
     hinst = hInstance;
 
     wc.style = 0;
@@ -240,8 +237,8 @@ int FAR PASCAL WEP(int nParameter)
 #pragma on (unreferenced);
 {
     _ENT();
-    _set_blocking_hook(NULL);
-    _set_debug_hook(NULL);
+    d2s_set_blocking_hook(NULL);
+    d2s_set_debug_hook(NULL);
     if (idComm > 0)
 	CloseComm(idComm);
     return (1);

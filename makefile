@@ -15,7 +15,8 @@ ifneq ($(.SHELLSTATUS),0)
 $(warning appending $(WATCOM)/binl64 to PATH)
 export PATH := $(PATH):$(WATCOM)/binl64
 endif
-CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu -I$(WATCOM)/h/win
+CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu -I$(WATCOM)/h/win \
+  -I$(WATCOM)/h -Ilibd2sock/include
 LINK = wlink
 
 all: $(OUTDIR) $(OUTDIR)/$(DLLNAME)
