@@ -49,6 +49,14 @@ struct GHBN {
     HANDLE id;
 };
 
+struct per_asel {
+    long lEvent;
+    int s;
+    void (*handler)(struct per_asel *arg);
+    int cancel;
+    int done;
+};
+
 struct per_async {
     void (*handler)(struct per_async *arg);
     struct GHBN ghbn;
@@ -58,6 +66,10 @@ struct per_async {
 static struct per_async asyncs[MAX_ASYNC];
 static HANDLE wsa_id;
 #define MAX_ASYNC_M1 (MAX_ASYNC - 1)
+
+enum { I_ASYNC, I_ASEL };
+
+static void CancelAS(int s);
 
 static void debug_out(const char *msg)
 {
@@ -189,6 +201,7 @@ static int blk_func(void *arg)
 static void close_func(int s, void *arg)
 {
     _ENT();
+    CancelAS(s);
 }
 
 /* callback needs to be exported so that Windows can patch its prolog
@@ -199,13 +212,23 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
     _ENT();
     if (wMsg == WM_USER) {
         switch (wParam) {
-            case 0: {
+            case I_ASYNC: {
                 struct per_async *async = (struct per_async *)lParam;
 
                 debug_out("\tWM_USER\n");
                 assert(async && async->handler);
                 async->handler(async);
                 async->handler = NULL;
+                DestroyWindow(hWnd);
+                break;
+            }
+            case I_ASEL: {
+                struct per_asel *asel = (struct per_asel *)lParam;
+
+                debug_out("\tWM_USER aselect\n");
+                assert(asel && asel->handler);
+                asel->handler(asel);
+                asel->handler = NULL;
                 DestroyWindow(hWnd);
                 break;
             }
@@ -423,7 +446,7 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
         _WSAE(task->wsa_err) = WSANO_RECOVERY;
         return 0;
     }
-    PostMessage(wnd, WM_USER, 0, (long)async);
+    PostMessage(wnd, WM_USER, I_ASYNC, (long)async);
 
     wsa_id++;
     wsa_id &= MAX_ASYNC_M1;
@@ -462,21 +485,67 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 #define _FCONNECT(lEvent) (!!((lEvent) & FD_CONNECT))
 #define _FCLOSE(lEvent) (!!((lEvent) & FD_CLOSE))
 
+static void AsyncSelect(struct per_asel *arg)
+{
+    _ENT();
+    /* TODO */
+    arg->done++;
+}
+
+static void CancelAS(int s)
+{
+    struct per_asel *asel = d2s_get_close_arg(s);
+
+    _ENT();
+    if (!asel)
+        return;
+    d2s_close_intercept(s, NULL);
+    asel->cancel++;
+    while (!asel->done)
+        Yield();
+    free(asel);
+    DEBUG_STR("\tcanceled, fd=%i\n", s);
+}
+
 int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
 {
+    struct per_task *task = task_find(GetCurrentTask());
     int fread = _FREAD(lEvent);
     int fwrite = _FWRITE(lEvent);
     int foob = _FOOB(lEvent);
     int faccept = _FACCEPT(lEvent);
     int fconnect = _FCONNECT(lEvent);
     int fclose = _FCLOSE(lEvent);
+    struct per_asel *asel;
+    HWND wnd;
 
     _ENT();
+    if (!lEvent)
+        return 0;
     DEBUG_STR("\tfd:%i event:0x%lx (fread:%i fwrite:%i foob:%i faccept:%i fconnect:%i fclose:%i)\n",
             s, lEvent, fread, fwrite, foob, faccept, fconnect, fclose);
-    d2s_close_intercept(s, (void *)lEvent);
-    /* TODO! */
-    return SOCKET_ERROR;
+    CancelAS(s);
+
+    wnd = CreateWindow(WSAClassName, __FUNCTION__,
+                        WS_OVERLAPPEDWINDOW,
+                        CW_USEDEFAULT, CW_USEDEFAULT,
+                        CW_USEDEFAULT, CW_USEDEFAULT,
+                        NULL, NULL,
+                        hinst,
+                        NULL);
+    if (!wnd) {
+        _WSAE(task->wsa_err) = WSANO_RECOVERY;
+        return SOCKET_ERROR;
+    }
+
+    asel = malloc(sizeof(struct per_asel));
+    memset(asel, 0, sizeof(struct per_asel));
+    asel->lEvent = lEvent;
+    asel->s = s;
+    asel->handler = AsyncSelect;
+    d2s_close_intercept(s, asel);
+    PostMessage(wnd, WM_USER, I_ASEL, (long)asel);
+    return 0;
 }
 
 int pascal far WSAStartup(WORD wVersionRequired, LPWSADATA lpWSAData)
