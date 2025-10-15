@@ -1,0 +1,45 @@
+name: Build
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - ready_for_review
+      - reopened
+      - synchronize
+  push:
+
+jobs:
+  build:
+    if: contains(github.event.head_commit.message, '[skip ci]') == false
+
+    runs-on: ubuntu-24.04
+
+    steps:
+    - name: check out sources
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Open Watcom install
+      uses: open-watcom/setup-watcom@v0
+      with:
+       target: "win"
+
+    - name: build
+      run: make
+
+    - name: pages
+      if: github.ref == 'refs/heads/master'
+      run: |
+        mkdir -p pub/files
+        zip --junk-paths pub/files/winsock.zip RELEASE/WINSOCK.DLL
+        echo '<a href="files/winsock.zip">Latest OpenWinsock build</a><br>' > pub/index.html
+
+    - name: deploy
+      if: github.ref == 'refs/heads/main'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_branch: gh-pages
+        publish_dir: pub
