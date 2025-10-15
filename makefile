@@ -7,7 +7,9 @@ endif
 NAME = winsock
 DLLNAME = WINSOCK.DLL
 OUTDIR = RELEASE
-WTLIB = libd2sock/W16/libd2sock.lib
+LD2S = libd2sock
+LIBLD2S = W16/libd2sock.lib
+WTLIB = $(LD2S)/$(LIBLD2S)
 
 CC = wcc
 DUMMY = $(shell which $(CC) 2>/dev/null)
@@ -42,8 +44,8 @@ $(NAME).lbc: $(NAME).def
 $(OUTDIR)/$(NAME).obj: $(NAME).c makefile
 	$(CC) $(CFLAGS) -fo=$@ $(NAME).c
 
-$(WTLIB): libd2sock
-	$(MAKE) -C $<
+$(WTLIB): $(LD2S)
+	$(MAKE) -C $< $(LIBLD2S)
 
 libd2sock:
 	git submodule update --remote
