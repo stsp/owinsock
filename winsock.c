@@ -512,7 +512,7 @@ static void CancelAS(int s)
     _ENT();
     if (!asel)
         return;
-    d2s_close_intercept(s, NULL);
+    d2s_set_close_arg(s, NULL);
     asel->base.cancel++;
     while (!asel->done)
         Yield();
@@ -560,7 +560,7 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
     asel->lEvent = lEvent;
     asel->s = s;
     asel->fclose = fclose;
-    d2s_close_intercept(s, asel);
+    d2s_set_close_arg(s, asel);
     PostMessage(wnd, WM_USER, 0, (long)asel);
     return 0;
 }
