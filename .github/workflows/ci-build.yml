@@ -24,7 +24,8 @@ jobs:
     - name: Open Watcom install
       uses: open-watcom/setup-watcom@v0
       with:
-       target: "win"
+        version: "2.0"
+        target: "win"
 
     - name: build
       run: make
