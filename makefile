@@ -1,9 +1,8 @@
 ifeq ($(WATCOM),)
 $(error WATCOM variable not set)
 endif
-ifeq ($(INCLUDE),)
 export INCLUDE := $(WATCOM)/h
-endif
+export WINDOWS_INCLUDE := $(WATCOM)/h/win
 NAME = winsock
 DLLNAME = WINSOCK.DLL
 OUTDIR = RELEASE
@@ -14,11 +13,10 @@ WTLIB = $(LD2S)/$(LIBLD2S)
 CC = wcc
 DUMMY = $(shell which $(CC) 2>/dev/null)
 ifneq ($(.SHELLSTATUS),0)
-$(warning appending $(WATCOM)/binl64 to PATH)
+$(warning appending $(WATCOM)/binl64 to PATH because it is not there)
 export PATH := $(PATH):$(WATCOM)/binl64
 endif
-CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu -I$(WATCOM)/h/win \
-  -I$(WATCOM)/h -Ilibd2sock/include
+CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu -Ilibd2sock/include
 LINK = wlink
 
 all: $(OUTDIR) $(OUTDIR)/$(DLLNAME)
