@@ -49,21 +49,25 @@ struct GHBN {
     HANDLE id;
 };
 
+struct async_base {
+    int aid;
+    void (*handler)(struct async_base *arg);
+    int cancel;
+};
+
 struct per_asel {
+    struct async_base base;
     HWND hWnd;
     unsigned int wMsg;
     long lEvent;
     int s;
-    void (*handler)(struct per_asel *arg);
-    int cancel;
     int done;
     int fclose;
 };
 
 struct per_async {
-    void (*handler)(struct per_async *arg);
+    struct async_base base;
     struct GHBN ghbn;
-    int cancel;
 };
 #define MAX_ASYNC 256
 static struct per_async asyncs[MAX_ASYNC];
@@ -139,7 +143,7 @@ int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
     return FALSE;
 }
 
-static int blk_async(struct per_async *async)
+static int blk_async(struct async_base *async)
 {
     Yield();
     if (async->cancel)
@@ -221,23 +225,13 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
     _ENT();
     if (wMsg == WM_USER) {
         switch (wParam) {
-            case I_ASYNC: {
-                struct per_async *async = (struct per_async *)lParam;
+            case 0: {
+                struct async_base *async = (struct async_base *)lParam;
 
-                debug_out("\tWM_USER\n");
+                DEBUG_STR("\tASYNC event %i\n", async->aid);
                 assert(async && async->handler);
                 async->handler(async);
                 async->handler = NULL;
-                DestroyWindow(hWnd);
-                break;
-            }
-            case I_ASEL: {
-                struct per_asel *asel = (struct per_asel *)lParam;
-
-                debug_out("\tWM_USER aselect\n");
-                assert(asel && asel->handler);
-                asel->handler(asel);
-                asel->handler = NULL;
                 DestroyWindow(hWnd);
                 break;
             }
@@ -340,8 +334,9 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
 #define GHBN_ERR(g, e) \
         PostMessage(g->hWnd, g->wMsg, g->id, WSAMAKEASYNCREPLY(0, e));
 
-static void AsyncGetHostByName(struct per_async *arg)
+static void AsyncGetHostByName(struct async_base *base)
 {
+    struct per_async *arg = (struct per_async *)base;
     struct GHBN *ghbn = &arg->ghbn;
     struct hostent *he;
     int len, i;
@@ -433,9 +428,10 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
     }
 
     async = &asyncs[id];
-    assert(!async->handler);
-    async->handler = AsyncGetHostByName;
-    async->cancel = 0;
+    assert(!async->base.handler);
+    memset(async, 0, sizeof(struct per_async));
+    async->base.aid = I_ASYNC;
+    async->base.handler = AsyncGetHostByName;
     async->ghbn.id = id + 1;
     async->ghbn.hWnd = hWnd;
     async->ghbn.wMsg = wMsg;
@@ -451,11 +447,11 @@ HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
                         hinst,
                         NULL);
     if (!wnd) {
-        async->handler = NULL;
+        async->base.handler = NULL;
         _WSAE(task->wsa_err) = WSANO_RECOVERY;
         return 0;
     }
-    PostMessage(wnd, WM_USER, I_ASYNC, (long)async);
+    PostMessage(wnd, WM_USER, 0, (long)async);
 
     wsa_id++;
     wsa_id &= MAX_ASYNC_M1;
@@ -483,7 +479,7 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
     _ENT();
     assert(hAsyncTaskHandle > 0 && hAsyncTaskHandle <= MAX_ASYNC);
     async = &asyncs[hAsyncTaskHandle - 1];
-    async->cancel++;
+    async->base.cancel++;
     return 0;
 }
 
@@ -494,8 +490,9 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 #define _FCONNECT(lEvent) (!!((lEvent) & FD_CONNECT))
 #define _FCLOSE(lEvent) (!!((lEvent) & FD_CLOSE))
 
-static void AsyncSelect(struct per_asel *arg)
+static void AsyncSelect(struct async_base *base)
 {
+    struct per_asel *arg = (struct per_asel *)base;
     int fread = _FREAD(arg->lEvent);
     int fwrite = _FWRITE(arg->lEvent);
     int foob = _FOOB(arg->lEvent);
@@ -503,6 +500,7 @@ static void AsyncSelect(struct per_asel *arg)
     int fconnect = _FCONNECT(arg->lEvent);
 
     _ENT();
+    d2s_set_blocking_arg(arg->s, base);
     /* TODO */
     arg->done++;
 }
@@ -515,7 +513,7 @@ static void CancelAS(int s)
     if (!asel)
         return;
     d2s_close_intercept(s, NULL);
-    asel->cancel++;
+    asel->base.cancel++;
     while (!asel->done)
         Yield();
     free(asel);
@@ -555,14 +553,15 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
 
     asel = malloc(sizeof(struct per_asel));
     memset(asel, 0, sizeof(struct per_asel));
+    asel->base.aid = I_ASEL;
+    asel->base.handler = AsyncSelect;
     asel->hWnd = hWnd;
     asel->wMsg = wMsg;
     asel->lEvent = lEvent;
     asel->s = s;
-    asel->handler = AsyncSelect;
     asel->fclose = fclose;
     d2s_close_intercept(s, asel);
-    PostMessage(wnd, WM_USER, I_ASEL, (long)asel);
+    PostMessage(wnd, WM_USER, 0, (long)asel);
     return 0;
 }
 
