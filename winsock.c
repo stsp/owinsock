@@ -51,7 +51,7 @@ struct GHBN {
 
 struct async_base {
     int aid;
-    void (*handler)(struct async_base *arg);
+    int (*handler)(struct async_base *arg);
     int cancel;
 };
 
@@ -143,26 +143,9 @@ int FAR PASCAL __WSAFDIsSet(SOCKET s, fd_set FAR *pfds)
     return FALSE;
 }
 
-static int blk_async(struct async_base *async)
-{
-    Yield();
-    if (async->cancel)
-        return 0;
-    return 1;
-}
-
 /*
- * We can't use Yield() in a blocking hook, as Yield() doesn't sleep
- * when there are no messages to other apps, so can be called in a
- * busy loop. But what's worse - it never calls into the handler
- * of our own app, because its handler is not returned, and windows
- * scheduler avoids recursive calls.
- * We need an explicit dispatch loop here.
- * DispatchMessage() calls synchronously into any handler for which
- * the message is being delivered, and that includes recursively
- * calling our own app.
- *
- * I believe however that in an async call above, Yield() suits.
+ * We can't use Yield() as it never switches between window procs of
+ * the same task. Needs to use this synchronous event dispatching.
  *
  */
 static BOOL DefaultBlockingHook(void)
@@ -176,6 +159,14 @@ static BOOL DefaultBlockingHook(void)
        DispatchMessage(&msg);
     }
     return ret;
+}
+
+static int blk_async(struct async_base *async)
+{
+    DefaultBlockingHook();
+    if (async->cancel)
+        return 0;
+    return 1;
 }
 
 static int blk_func(void *arg)
@@ -227,12 +218,17 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
         switch (wParam) {
             case 0: {
                 struct async_base *async = (struct async_base *)lParam;
+                int rc;
 
                 DEBUG_STR("\tASYNC event %i\n", async->aid);
                 assert(async && async->handler);
-                async->handler(async);
-                async->handler = NULL;
-                DestroyWindow(hWnd);
+                rc = async->handler(async);
+                if (rc) {
+                    DestroyWindow(hWnd);
+                } else {
+                    /* re-post for next iteration */
+                    PostMessage(hWnd, wMsg, wParam, lParam);
+                }
                 break;
             }
         }
@@ -334,7 +330,7 @@ HANDLE pascal far WSAAsyncGetProtoByNumber(HWND hWnd, u_int wMsg,
 #define GHBN_ERR(g, e) \
         PostMessage(g->hWnd, g->wMsg, g->id, WSAMAKEASYNCREPLY(0, e));
 
-static void AsyncGetHostByName(struct async_base *base)
+static void _AsyncGetHostByName(struct async_base *base)
 {
     struct per_async *arg = (struct per_async *)base;
     struct GHBN *ghbn = &arg->ghbn;
@@ -410,6 +406,13 @@ static void AsyncGetHostByName(struct async_base *base)
 
     freehostent(he);
     GHBN_RET(ghbn, done_len);
+}
+
+static int AsyncGetHostByName(struct async_base *base)
+{
+    _AsyncGetHostByName(base);
+    base->handler = NULL;
+    return 1;
 }
 
 HANDLE pascal far WSAAsyncGetHostByName(HWND hWnd, u_int wMsg,
@@ -490,7 +493,7 @@ int pascal far WSACancelAsyncRequest(HANDLE hAsyncTaskHandle)
 #define _FCONNECT(lEvent) (!!((lEvent) & FD_CONNECT))
 #define _FCLOSE(lEvent) (!!((lEvent) & FD_CLOSE))
 
-static void AsyncSelect(struct async_base *base)
+static int AsyncSelect(struct async_base *base)
 {
     struct per_asel *arg = (struct per_asel *)base;
     int fread = _FREAD(arg->lEvent);
@@ -502,7 +505,10 @@ static void AsyncSelect(struct async_base *base)
     _ENT();
     d2s_set_blocking_arg(arg->s, base);
     /* TODO */
-    arg->done++;
+    d2s_set_blocking_arg(arg->s, NULL);
+    DEBUG_STR("async select finished, fd=%i\n", arg->s);
+    free(arg);
+    return 1;
 }
 
 static void CancelAS(int s)
@@ -512,12 +518,7 @@ static void CancelAS(int s)
     _ENT();
     if (!asel)
         return;
-    d2s_set_close_arg(s, NULL);
     asel->base.cancel++;
-    while (!asel->done)
-        Yield();
-    free(asel);
-    DEBUG_STR("\tcanceled, fd=%i\n", s);
 }
 
 int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
