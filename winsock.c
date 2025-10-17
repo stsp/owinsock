@@ -548,6 +548,9 @@ static int AsyncSelect(struct async_base *base)
 
     _ENT();
 
+    DEBUG_STR("\tfd:%i event:0x%lx (fread:%i fwrite:%i foob:%i faccept:%i fconnect:%i fclose:%i)\n",
+            arg->s, arg->lEvent, fread, fwrite, foob, faccept, fconnect, fclose);
+    DEBUG_STR("\tcancel:%i closed:%i\n", base->cancel, base->closed);
     if (!base->cancel && !base->closed) {
         if (arg->state = 0) {
             arg->state++;
@@ -631,8 +634,9 @@ static int AsyncSelect(struct async_base *base)
         debug_out("\tclosed\n");
     }
 
-    d2s_set_blocking_arg(arg->s, NULL);
-    d2s_set_close_arg(arg->s, NULL);
+    /* remove arg only if still ours */
+    if (arg == d2s_get_close_arg(arg->s))
+        d2s_set_close_arg(arg->s, NULL);
     if (base->closed)
         closesocket(arg->s);
     free(arg);
