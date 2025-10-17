@@ -24,8 +24,6 @@
 #include <errno.h>
 #include <assert.h>
 
-static int idComm;
-
 struct per_task {
     HTASK task;
     FARPROC BlockingHook;
@@ -79,19 +77,29 @@ enum { I_ASYNC, I_ASEL };
 
 static void CancelAS(int s);
 
+#define DEBUG 0
+
+#if DEBUG
+static int idComm;
+
 static void debug_out(const char *msg)
 {
     if (idComm > 0)
 	WriteComm(idComm, msg, strlen(msg));
 }
 
-#define _ENT() debug_out("enter: " __FUNCTION__ "\n")
-#define _LVE() debug_out("leave: " __FUNCTION__ "\n")
 #define DEBUG_STR(...) { \
 	char _buf[128]; \
 	snprintf(_buf, sizeof(_buf), __VA_ARGS__); \
 	debug_out(_buf); \
 }
+#else
+#define debug_out(x)
+#define DEBUG_STR(...)
+#endif
+
+#define _ENT() debug_out("enter: " __FUNCTION__ "\n")
+#define _LVE() debug_out("leave: " __FUNCTION__ "\n")
 
 #define _WSAE(x) errno = 0, (x)
 
@@ -259,12 +267,16 @@ BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 {
     WNDCLASS wc = {0};
 
+#if DEBUG
     idComm = OpenComm("COM4", 16384, 16384);
+#endif
     _ENT();
     DEBUG_STR("hInstance=%x dataseg=%x heapsize=%x cmdline=%s\n",
             hInstance, wDataSegment, wHeapSize, lpszCmdLine);
     d2s_set_blocking_hook(blk_func);
+#if DEBUG
     d2s_set_debug_hook(debug_out);
+#endif
     d2s_set_close_hook(close_func);
     hinst = hInstance;
 
@@ -284,8 +296,10 @@ int FAR PASCAL WEP(int nParameter)
     _ENT();
     d2s_set_blocking_hook(NULL);
     d2s_set_debug_hook(NULL);
+#if DEBUG
     if (idComm > 0)
 	CloseComm(idComm);
+#endif
     return (1);
 }
 
