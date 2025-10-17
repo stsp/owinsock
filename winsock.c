@@ -50,7 +50,9 @@ struct GHBN {
 struct async_base {
     int aid;
     int (*handler)(struct async_base *arg);
+    UINT tid;
     int cancel;
+    int closed;
 };
 
 struct per_asel {
@@ -60,8 +62,6 @@ struct per_asel {
     long lEvent;
     int s;
     int state;
-    int closed;
-    int done;
 };
 
 struct per_async {
@@ -175,7 +175,7 @@ static int blk_async(struct async_base *async)
     /* cancel must be processed synchronously, as the canceler is
      * waiting for a "done" flag. So check before anything else,
      * rather than call back (recursively) to canceler. */
-    if (async->cancel)
+    if (async->cancel || async->closed)
         return 0;
 #if 0
     Yield();
@@ -212,14 +212,14 @@ static int blk_func(void *arg)
     return 1;
 }
 
-static void close_func(int s, void *arg)
+static int close_func(int s, void *arg)
 {
     struct per_asel *asel = arg;
 
     _ENT();
     assert(asel);
-    asel->closed++;
-    CancelAS(s);
+    asel->base.closed++;
+    return 0;  // no close
 }
 
 /* callback needs to be exported so that Windows can patch its prolog
@@ -232,6 +232,8 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
     case WM_USER:
         switch (wParam) {
             case 0: {
+                static int tmr;
+                int tid;
                 struct async_base *async = (struct async_base *)lParam;
                 int rc;
 
@@ -241,8 +243,18 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
                 if (rc) {
                     DestroyWindow(hWnd);
                 } else {
+#define USE_TIMER 1
+#if USE_TIMER
                     SetWindowLong(hWnd, 0, lParam);
-                    SetTimer(hWnd, 1, 500, NULL);
+                    if (!async->tid)
+                        async->tid = tmr++ + 1;
+                    tmr &= 255;
+                    SetTimer(hWnd, async->tid, 500, NULL);
+                    DEBUG_STR("setting timer %i\n", async->tid);
+#else
+                    while (DefaultBlockingHook());
+                    PostMessage(hWnd, wMsg, wParam, lParam);
+#endif
                 }
                 break;
             }
@@ -250,8 +262,9 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
         break;
 
     case WM_TIMER:
+        DEBUG_STR("fired timer %i\n", wParam);
         KillTimer(hWnd, wParam);
-        PostMessage(hWnd, WM_USER, wParam, GetWindowLong(hWnd, 0));
+        PostMessage(hWnd, WM_USER, 0, GetWindowLong(hWnd, 0));
         break;
 
     default:
@@ -537,13 +550,14 @@ static int AsyncSelect(struct async_base *base)
 
     _ENT();
 
-    if (arg->state = 0) {
-        arg->state++;
-        /* do initialization here */
-        d2s_set_blocking_arg(arg->s, base);
-    }
+    if (!base->cancel && !base->closed) {
+        if (arg->state = 0) {
+            arg->state++;
+            /* do initialization here */
+            d2s_set_blocking_arg(arg->s, base);
+            d2s_set_close_arg(arg->s, arg);
+        }
 
-    if (!arg->base.cancel) {
         if (fconnect) {
             err = aconnect(arg->s);
             if (err) {
@@ -612,7 +626,7 @@ static int AsyncSelect(struct async_base *base)
             return 0;
     }
 
-    if (fclose && arg->closed) {
+    if (fclose && base->closed && !base->cancel) {
         PostMessage(arg->hWnd, arg->wMsg, arg->s,
                 WSAMAKESELECTREPLY(FD_CLOSE, 0));
         arg->lEvent &= ~FD_CLOSE;
@@ -620,7 +634,10 @@ static int AsyncSelect(struct async_base *base)
     }
 
     d2s_set_blocking_arg(arg->s, NULL);
-    arg->done++;
+    d2s_set_close_arg(arg->s, NULL);
+    if (base->closed)
+        closesocket(arg->s);
+    free(arg);
     DEBUG_STR("async select finished, fd=%i\n", arg->s);
     return 1;
 }
@@ -634,9 +651,6 @@ static void CancelAS(int s)
         return;
     d2s_set_close_arg(s, NULL);
     asel->base.cancel++;
-    while (!asel->done)
-        DefaultBlockingHook();
-    free(asel);
 }
 
 int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
