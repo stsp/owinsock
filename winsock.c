@@ -61,8 +61,8 @@ struct per_asel {
     unsigned int wMsg;
     long lEvent;
     int s;
-    int done;
-    int fclose;
+    int state;
+    int closed;
 };
 
 struct per_async {
@@ -163,7 +163,11 @@ static BOOL DefaultBlockingHook(void)
 
 static int blk_async(struct async_base *async)
 {
-    DefaultBlockingHook();
+#if 0
+    Yield();
+#else
+    while (DefaultBlockingHook());
+#endif
     if (async->cancel)
         return 0;
     return 1;
@@ -202,10 +206,8 @@ static void close_func(int s, void *arg)
 
     _ENT();
     assert(asel);
-    if (asel->fclose)
-        PostMessage(asel->hWnd, asel->wMsg, s,
-                WSAMAKESELECTREPLY(FD_CLOSE, 0));
     CancelAS(s);
+    asel->closed++;
 }
 
 /* callback needs to be exported so that Windows can patch its prolog
@@ -226,6 +228,7 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
                 if (rc) {
                     DestroyWindow(hWnd);
                 } else {
+                    while (DefaultBlockingHook());
                     /* re-post for next iteration */
                     PostMessage(hWnd, wMsg, wParam, lParam);
                 }
@@ -501,11 +504,93 @@ static int AsyncSelect(struct async_base *base)
     int foob = _FOOB(arg->lEvent);
     int faccept = _FACCEPT(arg->lEvent);
     int fconnect = _FCONNECT(arg->lEvent);
+    int fclose = _FCLOSE(arg->lEvent);
+    int err;
 
     _ENT();
-    d2s_set_blocking_arg(arg->s, base);
-    /* TODO */
+
+    if (arg->state = 0) {
+        arg->state++;
+        /* do initialization here */
+        d2s_set_blocking_arg(arg->s, base);
+    }
+
+    if (!arg->base.cancel) {
+        if (fconnect) {
+            err = aconnect(arg->s);
+            if (err) {
+                switch (errno) {
+                    case EAGAIN:
+                        debug_out("\tkeeps waiting\n");
+                        return 0;
+                    case EIO:
+                        PostMessage(arg->hWnd, arg->wMsg, arg->s,
+                                WSAMAKESELECTREPLY(FD_CONNECT, WSAECONNREFUSED));
+                        debug_out("\tconnect failed\n");
+                        return 0;
+                    /* other errors: ignore fconnect */
+                }
+            } else {
+                PostMessage(arg->hWnd, arg->wMsg, arg->s,
+                        WSAMAKESELECTREPLY(FD_CONNECT, 0));
+                arg->lEvent &= ~FD_CONNECT;
+                debug_out("\tconnected\n");
+                return 0;
+            }
+        }
+
+        if (fread || fwrite || foob) {
+            fd_set r, w, b;
+            struct timeval tv = {0};
+            int res;
+
+            FD_ZERO(&r);
+            FD_ZERO(&w);
+            FD_ZERO(&b);
+            if (fread)
+                FD_SET(arg->s, &r);
+            if (fwrite)
+                FD_SET(arg->s, &w);
+            if (foob)
+                FD_SET(arg->s, &b);
+            res = select(arg->s + 1,
+                         fread ? &r : NULL,
+                         fwrite ? &w : NULL,
+                         foob ? &b : NULL,
+                         &tv);
+            if (res <= 0)
+                return 0;
+            if (FD_ISSET(arg->s, &r)) {
+                PostMessage(arg->hWnd, arg->wMsg, arg->s,
+                        WSAMAKESELECTREPLY(FD_READ, 0));
+                arg->lEvent &= ~FD_READ;
+            }
+            if (FD_ISSET(arg->s, &w)) {
+                PostMessage(arg->hWnd, arg->wMsg, arg->s,
+                        WSAMAKESELECTREPLY(FD_WRITE, 0));
+                arg->lEvent &= ~FD_WRITE;
+            }
+            if (FD_ISSET(arg->s, &b)) {
+                PostMessage(arg->hWnd, arg->wMsg, arg->s,
+                        WSAMAKESELECTREPLY(FD_OOB, 0));
+                arg->lEvent &= ~FD_OOB;
+            }
+        }
+        /* hack */
+        arg->lEvent &= ~(FD_OOB | FD_ACCEPT | FD_CLOSE);
+
+        if (arg->lEvent)
+            return 0;
+    }
+
+    if (fclose && arg->closed) {
+        PostMessage(arg->hWnd, arg->wMsg, arg->s,
+                WSAMAKESELECTREPLY(FD_CLOSE, 0));
+        arg->lEvent &= ~FD_CLOSE;
+    }
+
     d2s_set_blocking_arg(arg->s, NULL);
+    d2s_set_close_arg(arg->s, NULL);
     DEBUG_STR("async select finished, fd=%i\n", arg->s);
     free(arg);
     return 1;
@@ -518,6 +603,7 @@ static void CancelAS(int s)
     _ENT();
     if (!asel)
         return;
+    d2s_set_close_arg(s, NULL);
     asel->base.cancel++;
 }
 
@@ -560,7 +646,6 @@ int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
     asel->wMsg = wMsg;
     asel->lEvent = lEvent;
     asel->s = s;
-    asel->fclose = fclose;
     d2s_set_close_arg(s, asel);
     PostMessage(wnd, WM_USER, 0, (long)asel);
     return 0;
