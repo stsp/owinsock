@@ -50,7 +50,6 @@ struct GHBN {
 struct async_base {
     int aid;
     int (*handler)(struct async_base *arg);
-    UINT tid;
     int cancel;
     int closed;
 };
@@ -230,8 +229,6 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
     case WM_USER:
         switch (wParam) {
             case 0: {
-                static int tmr;
-                int tid;
                 struct async_base *async = (struct async_base *)lParam;
                 int rc;
 
@@ -244,11 +241,8 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
 #define USE_TIMER 1
 #if USE_TIMER
                     SetWindowLong(hWnd, 0, lParam);
-                    if (!async->tid)
-                        async->tid = tmr++ + 1;
-                    tmr &= 255;
-                    SetTimer(hWnd, async->tid, 500, NULL);
-                    DEBUG_STR("setting timer %i\n", async->tid);
+                    SetTimer(hWnd, 1, 500, NULL);
+                    debug_out("setting timer\n");
 #else
                     while (DefaultBlockingHook());
                     PostMessage(hWnd, wMsg, wParam, lParam);
