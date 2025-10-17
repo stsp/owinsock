@@ -628,9 +628,13 @@ static int AsyncSelect(struct async_base *base)
         debug_out("\tclosed\n");
     }
 
-    /* remove arg only if still ours */
-    if (arg == d2s_get_close_arg(arg->s))
+    /* on cancel the arg already re-used, so then don't touch */
+    if (!base->cancel) {
+        assert(arg == d2s_get_close_arg(arg->s));
         d2s_set_close_arg(arg->s, NULL);
+    } else {
+        assert(arg != d2s_get_close_arg(arg->s));
+    }
     if (base->closed)
         closesocket(arg->s);
     free(arg);
