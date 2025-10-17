@@ -242,7 +242,7 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
                     DestroyWindow(hWnd);
                 } else {
                     SetWindowLong(hWnd, 0, lParam);
-                    SetTimer(hWnd, wParam, 500, NULL);
+                    SetTimer(hWnd, 1, 500, NULL);
                 }
                 break;
             }
@@ -250,7 +250,7 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
         break;
 
     case WM_TIMER:
-        KillTimer(hWnd, wMsg);
+        KillTimer(hWnd, wParam);
         PostMessage(hWnd, WM_USER, wParam, GetWindowLong(hWnd, 0));
         break;
 
