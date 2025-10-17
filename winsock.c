@@ -77,9 +77,7 @@ enum { I_ASYNC, I_ASEL };
 
 static void CancelAS(int s);
 
-#define DEBUG 0
-
-#if DEBUG
+#ifdef DEBUG
 static int idComm;
 
 static void debug_out(const char *msg)
@@ -280,14 +278,14 @@ BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 {
     WNDCLASS wc = {0};
 
-#if DEBUG
+#ifdef DEBUG
     idComm = OpenComm("COM4", 16384, 16384);
 #endif
     _ENT();
     DEBUG_STR("hInstance=%x dataseg=%x heapsize=%x cmdline=%s\n",
             hInstance, wDataSegment, wHeapSize, lpszCmdLine);
     d2s_set_blocking_hook(blk_func);
-#if DEBUG
+#ifdef DEBUG
     d2s_set_debug_hook(debug_out);
 #endif
     d2s_set_close_hook(close_func);
@@ -309,7 +307,7 @@ int FAR PASCAL WEP(int nParameter)
     _ENT();
     d2s_set_blocking_hook(NULL);
     d2s_set_debug_hook(NULL);
-#if DEBUG
+#ifdef DEBUG
     if (idComm > 0)
 	CloseComm(idComm);
 #endif

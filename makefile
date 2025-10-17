@@ -19,6 +19,10 @@ endif
 CFLAGS = -ml -3 -bt=windows -bd -zc -zw -zu -Ilibd2sock/include
 LINK = wlink
 
+ifdef DEBUG
+CFLAGS += -DDEBUG
+endif
+
 all: $(OUTDIR) $(OUTDIR)/$(DLLNAME)
 
 $(OUTDIR):
