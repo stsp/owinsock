@@ -63,6 +63,7 @@ struct per_asel {
     int s;
     int state;
     int closed;
+    int done;
 };
 
 struct per_async {
@@ -163,13 +164,16 @@ static BOOL DefaultBlockingHook(void)
 
 static int blk_async(struct async_base *async)
 {
+    /* cancel must be processed synchronously, as the canceler is
+     * waiting for a "done" flag. So check before anything else,
+     * rather than call back (recursively) to canceler. */
+    if (async->cancel)
+        return 0;
 #if 0
     Yield();
 #else
     while (DefaultBlockingHook());
 #endif
-    if (async->cancel)
-        return 0;
     return 1;
 }
 
@@ -206,8 +210,8 @@ static void close_func(int s, void *arg)
 
     _ENT();
     assert(asel);
-    CancelAS(s);
     asel->closed++;
+    CancelAS(s);
 }
 
 /* callback needs to be exported so that Windows can patch its prolog
@@ -216,7 +220,8 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
         WPARAM wParam, LPARAM lParam)
 {
     _ENT();
-    if (wMsg == WM_USER) {
+    switch (wMsg) {
+    case WM_USER:
         switch (wParam) {
             case 0: {
                 struct async_base *async = (struct async_base *)lParam;
@@ -228,17 +233,25 @@ LRESULT CALLBACK _export WSAWindowProc(HWND hWnd, UINT wMsg,
                 if (rc) {
                     DestroyWindow(hWnd);
                 } else {
-                    while (DefaultBlockingHook());
-                    /* re-post for next iteration */
-                    PostMessage(hWnd, wMsg, wParam, lParam);
+                    SetWindowLong(hWnd, 0, lParam);
+                    SetTimer(hWnd, wParam, 500, NULL);
                 }
                 break;
             }
         }
-        return 0;
+        break;
+
+    case WM_TIMER:
+        KillTimer(hWnd, wMsg);
+        PostMessage(hWnd, WM_USER, wParam, GetWindowLong(hWnd, 0));
+        break;
+
+    default:
+        DEBUG_STR("\twmsg 0x%x\n", wMsg);
+        return DefWindowProc(hWnd, wMsg, wParam, lParam);
     }
-    DEBUG_STR("\twmsg 0x%x\n", wMsg);
-    return DefWindowProc(hWnd, wMsg, wParam, lParam);
+
+    return 0;
 }
 
 BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
@@ -257,6 +270,7 @@ BOOL FAR PASCAL LibMain(HINSTANCE hInstance, WORD wDataSegment,
 
     wc.style = 0;
     wc.lpfnWndProc = WSAWindowProc;
+    wc.cbWndExtra = sizeof(long);
     wc.hInstance = hInstance;
     wc.lpszClassName = WSAClassName;
     RegisterClass(&wc);
@@ -564,20 +578,21 @@ static int AsyncSelect(struct async_base *base)
                 PostMessage(arg->hWnd, arg->wMsg, arg->s,
                         WSAMAKESELECTREPLY(FD_READ, 0));
                 arg->lEvent &= ~FD_READ;
+                debug_out("\tread\n");
             }
             if (FD_ISSET(arg->s, &w)) {
                 PostMessage(arg->hWnd, arg->wMsg, arg->s,
                         WSAMAKESELECTREPLY(FD_WRITE, 0));
                 arg->lEvent &= ~FD_WRITE;
+                debug_out("\twrite\n");
             }
             if (FD_ISSET(arg->s, &b)) {
                 PostMessage(arg->hWnd, arg->wMsg, arg->s,
                         WSAMAKESELECTREPLY(FD_OOB, 0));
                 arg->lEvent &= ~FD_OOB;
+                debug_out("\toob\n");
             }
         }
-        /* hack */
-        arg->lEvent &= ~(FD_OOB | FD_ACCEPT | FD_CLOSE);
 
         if (arg->lEvent)
             return 0;
@@ -587,12 +602,12 @@ static int AsyncSelect(struct async_base *base)
         PostMessage(arg->hWnd, arg->wMsg, arg->s,
                 WSAMAKESELECTREPLY(FD_CLOSE, 0));
         arg->lEvent &= ~FD_CLOSE;
+        debug_out("\tclosed\n");
     }
 
     d2s_set_blocking_arg(arg->s, NULL);
-    d2s_set_close_arg(arg->s, NULL);
+    arg->done++;
     DEBUG_STR("async select finished, fd=%i\n", arg->s);
-    free(arg);
     return 1;
 }
 
@@ -605,6 +620,9 @@ static void CancelAS(int s)
         return;
     d2s_set_close_arg(s, NULL);
     asel->base.cancel++;
+    while (!asel->done)
+        DefaultBlockingHook();
+    free(asel);
 }
 
 int pascal far WSAAsyncSelect(SOCKET s, HWND hWnd, u_int wMsg, long lEvent)
