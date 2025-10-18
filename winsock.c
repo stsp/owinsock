@@ -563,6 +563,7 @@ static int AsyncSelect(struct async_base *base)
                     case EIO:
                         PostMessage(arg->hWnd, arg->wMsg, arg->s,
                                 WSAMAKESELECTREPLY(FD_CONNECT, WSAECONNREFUSED));
+                        arg->lEvent &= ~FD_CONNECT;
                         debug_out("\tconnect failed\n");
                         return 0;
                     /* other errors: ignore fconnect */
